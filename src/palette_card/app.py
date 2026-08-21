@@ -7,6 +7,9 @@ score. After training, restart the app and Auto will use the validated model.
 
 from __future__ import annotations
 
+import ast
+import html
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from uuid import uuid4
@@ -18,6 +21,74 @@ from .config import CLASS_NAMES, Paths
 from .model import load_checkpoint, predict, select_device
 from .palette import derive_palette_roles, extract_palette
 from .runtime import cleanup_generated_cards, validate_upload_image
+
+
+_ASSET_DIR = Path(__file__).with_name("assets")
+_DEFAULT_TITLE = "A little color for you"
+_DEFAULT_MESSAGE = "Made from the colors in your photo."
+_EMPTY_STATE_COPY = "Upload a photo to begin."
+_PRIVACY_COPY = "Runs on this computer by default. Generated PNGs stay in the configured local output folder until you remove them."
+
+
+def _load_studio_css() -> str:
+    """Load the local editorial stylesheet without making the UI network-bound."""
+
+    try:
+        return (_ASSET_DIR / "studio.css").read_text(encoding="utf-8")
+    except OSError:  # pragma: no cover - source checkout always includes the asset
+        return ""
+
+
+def _mode_badge(predictor: Predictor | None) -> str:
+    """Return the short, honest recognition-mode copy used by the UI."""
+
+    if predictor is None:
+        return "Demo Mode · choose the object yourself."
+    return "Model Mode · Auto is ready."
+
+
+def _color_story_html(status: str) -> str:
+    """Render inspectable source/derived swatches from the public status text.
+
+    ``analyze_image`` intentionally keeps its established three-value return
+    contract.  The UI can still show a visual color story by deriving this
+    small presentation-only fragment from the existing status lines.
+    """
+
+    source_line = next((line for line in status.splitlines() if line.startswith("Palette:")), "")
+    source_swatches = re.findall(r"(#[0-9a-fA-F]{6})\s+\(([^)]+)\)", source_line)
+    roles_line = next((line for line in status.splitlines() if line.startswith("Design roles (derived):")), "")
+    roles: dict[str, object] = {}
+    try:
+        roles = ast.literal_eval(roles_line.split(":", 1)[1].strip()) if roles_line else {}
+    except (SyntaxError, ValueError):
+        roles = {}
+
+    def swatch(color: str, label: str, detail: str = "") -> str:
+        safe_color = color if re.fullmatch(r"#[0-9a-fA-F]{6}", color) else "#ded8cf"
+        return (
+            f'<span class="pc-swatch" style="--swatch:{safe_color}" '
+            f'role="img" aria-label="{html.escape(label)} {html.escape(detail)}" '
+            f'title="{html.escape(label)} {html.escape(detail)}"></span>'
+        )
+
+    observed = "".join(swatch(color, "Observed source color", proportion) for color, proportion in source_swatches)
+    role_keys = ("background", "surface", "primary", "secondary", "accent")
+    derived = "".join(
+        swatch(str(roles[key]), f"Derived {key} role")
+        for key in role_keys
+        if key in roles
+    )
+    if not observed and not derived:
+        return "<p class='pc-story-empty'>Your color story will appear here after generation.</p>"
+    return (
+        "<div class='pc-story-grid'>"
+        "<div><p class='pc-story-label'>Observed in the photo</p>"
+        f"<div class='pc-swatch-row'>{observed}</div></div>"
+        "<div><p class='pc-story-label'>Translated into design roles</p>"
+        f"<div class='pc-swatch-row'>{derived}</div></div>"
+        "</div>"
+    )
 
 
 @dataclass
@@ -75,7 +146,7 @@ def resolve_output_dir(output_dir: str | Path | None = None) -> Path:
     return destination
 
 
-def analyze_image(image: Image.Image, object_choice: str = "Auto", title: str = "A little color for you", message: str = "Made from the colors in your photo.", predictor: Predictor | None = None, mode_message: str | None = None, output_dir: str | Path | None = None, palette_predictor: PalettePredictor | None = None, palette_mode_message: str | None = None, max_pixels: int = 16_000_000, retention_hours: int | None = None):
+def analyze_image(image: Image.Image, object_choice: str = "Auto", title: str = _DEFAULT_TITLE, message: str = _DEFAULT_MESSAGE, predictor: Predictor | None = None, mode_message: str | None = None, output_dir: str | Path | None = None, palette_predictor: PalettePredictor | None = None, palette_mode_message: str | None = None, max_pixels: int = 16_000_000, retention_hours: int | None = None):
     """Run recognition (or explicit manual selection), palette, and card generation."""
 
     image = validate_upload_image(image, max_pixels=max_pixels)
@@ -108,6 +179,8 @@ def analyze_image(image: Image.Image, object_choice: str = "Auto", title: str = 
     # makes it clear that the classifier (when trained) recognizes objects,
     # while this current color intelligence is deterministic design science.
     status = "\n".join(filter(None, [
+        "Your three cards are ready.",
+        "5 colors observed · 3 directions composed.",
         mode_message,
         palette_mode_message,
         recognition,
@@ -131,28 +204,179 @@ def build_app(checkpoint_path: str | Path | None = None, output_dir: str | Path 
     palette_predictor, palette_mode_message = load_palette_predictor(palette_checkpoint_path)
     resolved_output_dir = resolve_output_dir(output_dir)
 
+    def status_html(status: str) -> str:
+        """Keep generation status readable and announce it to assistive tech."""
+
+        escaped = html.escape(status)
+        if "\nDETAILS: " in escaped:
+            summary, detail = escaped.split("\nDETAILS: ", 1)
+            body = f"{summary.replace(chr(10), '<br>')}<details><summary>Details</summary><span class='pc-status-detail'>{detail}</span></details>"
+        else:
+            body = escaped.replace("\n", "<br>")
+        return f"<div class='pc-status-copy' aria-live='polite'>{body}</div>"
+
     def callback(image, object_choice, title, message):
         try:
-            return analyze_image(image, object_choice, title, message, predictor, mode_message, resolved_output_dir, palette_predictor, palette_mode_message, max_pixels, retention_hours)
+            gallery, files, status = analyze_image(image, object_choice, title, message, predictor, mode_message, resolved_output_dir, palette_predictor, palette_mode_message, max_pixels, retention_hours)
+            return (
+                gallery,
+                files,
+                _color_story_html(status),
+                status_html(status),
+                gr.update(visible=True),
+                gr.update(visible=True),
+            )
         except Exception as exc:
             # Keep UI failures readable instead of exposing a Python traceback.
-            return [], [], f"Could not create cards: {exc}"
+            status = "We couldn’t create the cards. Check that an image is uploaded, then try again.\nDETAILS: " + str(exc)
+            return (
+                [],
+                [],
+                _color_story_html(status),
+                status_html(status),
+                gr.update(visible=True),
+                gr.update(visible=True),
+            )
+
+    def image_state(image):
+        has_image = image is not None
+        return (
+            gr.update(interactive=has_image),
+            gr.update(visible=not has_image),
+            gr.update(visible=False),
+            gr.update(visible=False),
+            [],
+            [],
+            _color_story_html(""),
+            "",
+        )
+
+    def reset_form():
+        return (
+            gr.update(value=None),
+            gr.update(value="Auto"),
+            gr.update(value=_DEFAULT_TITLE),
+            gr.update(value=_DEFAULT_MESSAGE),
+            [],
+            [],
+            _color_story_html(""),
+            "",
+            gr.update(visible=False),
+            gr.update(visible=False),
+            gr.update(value="Generate 3 cards", interactive=False),
+            gr.update(visible=True),
+        )
+
+    def mark_loading():
+        return gr.update(value="Finding the color story…", interactive=False)
+
+    def mark_ready():
+        return gr.update(value="Generate 3 cards", interactive=True)
 
     with gr.Blocks(title="PaletteCard AI") as demo:
-        gr.Markdown("# PaletteCard AI\nUpload one centered-object photo and turn its colors into three downloadable designs.")
-        gr.Markdown(mode_message + "\n\n" + palette_mode_message)
-        with gr.Row():
-            with gr.Column(scale=1):
-                image = gr.Image(type="pil", label="Object photo")
-                object_choice = gr.Dropdown(["Auto", *CLASS_NAMES], value="Auto", label="Object label", info="Demo Mode uses your selection. Auto uses the trained model when a checkpoint exists.")
-                title = gr.Textbox(value="A little color for you", label="Card title")
-                message = gr.Textbox(value="Made from the colors in your photo.", label="Card message", lines=3)
-                generate = gr.Button("Generate 3 cards", variant="primary")
-            with gr.Column(scale=2):
-                gallery = gr.Gallery(label="Design variations", columns=3, height="auto")
-                downloads = gr.File(label="Download PNG files", file_count="multiple")
-                status = gr.Markdown("Upload an image to begin.")
-        generate.click(callback, inputs=[image, object_choice, title, message], outputs=[gallery, downloads, status])
+        gr.HTML(
+            "<header class='pc-header'><a class='pc-wordmark' href='#top' aria-label='PaletteCard AI home'>PaletteCard <span>AI</span></a>"
+            "<div class='pc-header-meta'><span class='pc-local-badge'>Local by default</span>"
+            "<a href='#pc-privacy'>Privacy</a></div></header>"
+        )
+        gr.HTML(
+            "<main id='top' class='pc-main'><section class='pc-hero' aria-labelledby='pc-hero-title'>"
+            "<p class='pc-eyebrow'>A small color studio</p>"
+            "<h1 id='pc-hero-title'>Make a color story from one photo.</h1>"
+            "<p class='pc-hero-copy'>One centered object becomes a considered color story and three greeting-card directions.</p>"
+            "</section></main>"
+        )
+        with gr.Row(elem_classes=["pc-mode-row"]):
+            gr.HTML(f"<div class='pc-mode-badge' role='status'><strong>{html.escape(_mode_badge(predictor))}</strong><span>{html.escape(mode_message)}</span></div>")
+            gr.HTML(f"<div class='pc-palette-mode'><span>{html.escape(palette_mode_message)}</span></div>")
+
+        with gr.Row(elem_classes=["pc-studio-grid"]):
+            with gr.Column(scale=5, elem_classes=["pc-input-rail"]):
+                gr.Markdown("### Start with the source", elem_classes=["pc-section-kicker"])
+                image = gr.Image(
+                    type="pil",
+                    sources=["upload", "webcam", "clipboard"],
+                    label="Drop a photo of one centered object",
+                    height=360,
+                    elem_id="pc-image",
+                    elem_classes=["pc-image-input"],
+                )
+                gr.Markdown("Flower, heart, ring, cake, or balloon · JPG, PNG, or WebP", elem_classes=["pc-upload-hint"])
+                gr.Markdown("Your photo is the source of the story. The interface stays quiet so the colors can lead.", elem_classes=["pc-source-note"])
+                object_choice = gr.Dropdown(
+                    ["Auto", *CLASS_NAMES],
+                    value="Auto",
+                    label="How should we identify it?",
+                    info="Demo Mode uses your choice. Model Mode can make an Auto prediction.",
+                    elem_id="pc-object-choice",
+                )
+                with gr.Row(elem_classes=["pc-copy-row"]):
+                    title = gr.Textbox(value=_DEFAULT_TITLE, label="Card title", elem_id="pc-title")
+                    message = gr.Textbox(value=_DEFAULT_MESSAGE, label="Card message", lines=3, elem_id="pc-message")
+                generate = gr.Button("Generate 3 cards", variant="primary", size="lg", interactive=False, elem_id="pc-generate", elem_classes=["pc-cta"])
+                gr.Markdown("Processing stays on this computer. No network request is needed to make the cards.", elem_classes=["pc-local-note"])
+
+            with gr.Column(scale=4, elem_classes=["pc-source-rail"]):
+                gr.HTML(
+                    "<div class='pc-source-rail-heading'><p class='pc-section-kicker'>The color lab</p>"
+                    "<h2>Photo in. Color story out.</h2>"
+                    "<p>Start with one clear subject. We observe five colors, then turn them into readable roles for three distinct layouts.</p></div>"
+                )
+                empty_state = gr.Markdown(_EMPTY_STATE_COPY, elem_id="pc-empty-state", elem_classes=["pc-empty-state"])
+                gr.HTML(
+                    "<div class='pc-empty-example'><span aria-hidden='true'>↗</span> Drop a photo of one centered object above to see the studio come alive.</div>",
+                    elem_classes=["pc-empty-example"],
+                )
+                gr.HTML(
+                    "<div class='pc-source-contract'><span class='pc-contract-number'>01</span><div><strong>Observed colors</strong><p>Five colors from the photo, with their relative presence.</p></div></div>"
+                    "<div class='pc-source-contract'><span class='pc-contract-number'>02</span><div><strong>Derived roles</strong><p>Neutral surfaces, restrained accents, and safe text pairings.</p></div></div>",
+                    elem_classes=["pc-contract-list"],
+                )
+
+        with gr.Column(visible=False, elem_id="pc-results", elem_classes=["pc-results"] ) as result_panel:
+            with gr.Row(elem_classes=["pc-results-heading"]):
+                gr.Markdown("## Three directions, ready to download")
+                start_over = gr.Button("Start over", variant="secondary", size="sm", visible=False, elem_id="pc-start-over")
+            gallery = gr.Gallery(
+                label="Three directions, ready to download",
+                columns=3,
+                height="auto",
+                object_fit="cover",
+                allow_preview=True,
+                buttons=["download", "download_all", "fullscreen"],
+                elem_id="pc-gallery",
+                elem_classes=["pc-gallery"],
+            )
+            downloads = gr.File(label="Download all 3 PNGs", file_count="multiple", elem_id="pc-downloads", elem_classes=["pc-downloads"])
+            with gr.Accordion("Color story", open=False, elem_id="pc-color-story", elem_classes=["pc-color-story"]):
+                gr.Markdown("Observed in the photo, then translated into design roles.", elem_classes=["pc-story-helper"])
+                story_html = gr.HTML(_color_story_html(""), elem_id="pc-story-swatches")
+                status = gr.HTML("", elem_id="pc-status", elem_classes=["pc-status"])
+
+        gr.HTML(
+            f"<footer id='pc-privacy' class='pc-footer'><p><strong>Local by default.</strong> {html.escape(_PRIVACY_COPY)}</p>"
+            "<p>Using <code>--share</code> creates a public link. Do not use it for sensitive images.</p></footer>"
+        )
+
+        image.change(
+            image_state,
+            inputs=image,
+            outputs=[generate, empty_state, result_panel, start_over, gallery, downloads, story_html, status],
+            show_progress="hidden",
+        )
+        # The transient loading label is part of the same event chain as the
+        # unchanged three-value analysis contract.
+        generate.click(mark_loading, outputs=generate, show_progress="hidden").then(
+            callback,
+            inputs=[image, object_choice, title, message],
+            outputs=[gallery, downloads, story_html, status, result_panel, start_over],
+            show_progress="minimal",
+        ).then(mark_ready, outputs=generate, show_progress="hidden")
+        start_over.click(
+            reset_form,
+            outputs=[image, object_choice, title, message, gallery, downloads, story_html, status, result_panel, start_over, generate, empty_state],
+            show_progress="hidden",
+        )
     demo.queue(max_size=queue_size, default_concurrency_limit=concurrency)
     # Keep these attributes inspectable for tests and use the exact same path
     # when main() launches the server with Gradio's allowed_paths guard.
@@ -160,6 +384,7 @@ def build_app(checkpoint_path: str | Path | None = None, output_dir: str | Path 
     demo._palette_card_allowed_paths = [str(resolved_output_dir)]
     demo._palette_card_object_model_ready = predictor is not None
     demo._palette_card_palette_model_ready = palette_predictor is not None
+    demo._palette_card_css = _load_studio_css()
     return demo
 
 
@@ -174,7 +399,7 @@ def main() -> int:
     args = parser.parse_args()
     output_dir = resolve_output_dir(args.output_dir)
     demo = build_app(args.checkpoint, output_dir, args.palette_checkpoint)
-    demo.launch(share=args.share, allowed_paths=[str(output_dir)])
+    demo.launch(share=args.share, allowed_paths=[str(output_dir)], css=_load_studio_css())
     return 0
 
 
