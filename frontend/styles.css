@@ -368,3 +368,149 @@ footer a { justify-self: end; text-underline-offset: 4px; }
   html { scroll-behavior: auto; }
   *, *::before, *::after { transition-duration: .01ms !important; }
 }
+
+/* Photo-derived studio pass. The preview starts quiet, then updates these
+   semantic tokens from the five sampled source colors. Keeping the tokens at
+   the root makes the transition cover the whole page, not only the cards. */
+:root {
+  --surface-muted: #f3eee7;
+  --success: #27634f;
+  --danger: #9e2f2f;
+  --photo-accent: var(--accent);
+  --photo-tint: var(--accent-soft);
+}
+
+body,
+.site-header,
+.studio,
+.control-panel,
+.story-panel,
+.dropzone,
+.source-stage,
+.status-badge,
+.upload-icon,
+.object-options span,
+.offline-note,
+.card-preview,
+.editorial-image-wrap,
+.editorial-orb,
+.shape,
+.minimal-frame,
+.swatches span,
+.primary-action,
+.results-note,
+footer {
+  transition:
+    color 560ms ease,
+    background-color 560ms ease,
+    border-color 560ms ease,
+    box-shadow 560ms ease;
+}
+
+.dropzone,
+.source-stage { background: var(--surface-muted); }
+.editorial-card { background: var(--surface); }
+.minimal-card { background: var(--canvas); }
+.status-badge { background: color-mix(in srgb, var(--accent-soft) 42%, var(--surface)); }
+.story-panel { background: color-mix(in srgb, var(--accent-soft) 22%, var(--surface)); }
+
+.story-helper {
+  max-width: 310px;
+  margin: 7px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.mode-status {
+  margin: 0 0 12px;
+  color: var(--accent);
+  font-size: 11px;
+}
+.mode-status strong { color: var(--ink); }
+.object-options label.is-disabled { cursor: not-allowed; opacity: .62; }
+.object-options label.is-disabled span { cursor: not-allowed; }
+
+.result-status {
+  margin-top: 25px;
+  padding: 13px 16px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  border-left: 3px solid var(--success);
+  color: var(--success);
+  background: color-mix(in srgb, var(--accent-soft) 30%, var(--surface));
+  font-size: 13px;
+}
+.result-status strong { color: var(--ink); }
+
+.action-note[data-state="ready"] { color: var(--success); }
+.action-note[data-state="loading"] { color: var(--accent); }
+.action-note[data-state="invalid"],
+.action-note[data-state="error"] { color: var(--danger); }
+.primary-action[aria-busy="true"] { cursor: wait; }
+
+.color-inspection {
+  margin-top: 18px;
+  border-top: 1px solid color-mix(in srgb, var(--rule) 80%, transparent);
+  color: var(--muted);
+  font-size: 12px;
+}
+.color-inspection summary {
+  padding: 13px 0;
+  color: var(--ink);
+  cursor: pointer;
+  font-weight: 700;
+}
+.color-inspection p { margin: 0 0 3px; line-height: 1.55; }
+.color-inspection strong { color: var(--ink); }
+
+body.theme-transition::after {
+  position: fixed;
+  z-index: 20;
+  inset: 0;
+  pointer-events: none;
+  content: "";
+  background:
+    radial-gradient(circle at 12% 15%, color-mix(in srgb, var(--accent) 20%, transparent), transparent 32%),
+    radial-gradient(circle at 88% 82%, color-mix(in srgb, var(--secondary) 18%, transparent), transparent 35%);
+  opacity: 0;
+  animation: theme-wash 760ms ease-out both;
+}
+@keyframes theme-wash {
+  0% { opacity: 0; }
+  24% { opacity: .72; }
+  100% { opacity: 0; }
+}
+
+@media (max-width: 620px) {
+  .story-helper { max-width: none; }
+  .result-status { display: block; }
+  .result-status span { display: block; margin-top: 4px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body,
+  .site-header,
+  .studio,
+  .control-panel,
+  .story-panel,
+  .dropzone,
+  .source-stage,
+  .status-badge,
+  .upload-icon,
+  .object-options span,
+  .offline-note,
+  .card-preview,
+  .editorial-image-wrap,
+  .editorial-orb,
+  .shape,
+  .minimal-frame,
+  .swatches span,
+  .primary-action,
+  .results-note,
+  footer {
+    transition: none !important;
+  }
+  body.theme-transition::after { display: none; animation: none; }
+}

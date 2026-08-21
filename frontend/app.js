@@ -1,4 +1,6 @@
 const DEFAULT_PALETTE = ["#f7f3ed", "#8d1738", "#c79a50", "#ead8d2", "#3e3034"];
+const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+const MAX_FILE_SIZE = 12 * 1024 * 1024;
 
 const fileInput = document.querySelector("#photo-input");
 const dropzone = document.querySelector("#dropzone");
@@ -11,17 +13,24 @@ const removePhoto = document.querySelector("#remove-photo");
 const fileName = document.querySelector("#file-name");
 const photoError = document.querySelector("#photo-error");
 const generateButton = document.querySelector("#generate-button");
+const generateLabel = document.querySelector("#generate-label");
 const actionStatus = document.querySelector("#action-status");
 const results = document.querySelector("#results");
+const resultStatusTitle = document.querySelector("#result-status-title");
+const resultStatusCopy = document.querySelector("#result-status-copy");
 const form = document.querySelector("#studio-form");
 const titleInput = document.querySelector("#card-title");
 const messageInput = document.querySelector("#card-message");
 const swatches = [...document.querySelectorAll("#swatches span")];
 const paletteBars = [...document.querySelectorAll(".palette-bar span")];
+const miniSwatches = [...document.querySelectorAll(".mini-swatches span")];
 const cardImages = [...document.querySelectorAll(".card-source-image")];
+const modeStatus = document.querySelector("#mode-status");
 
 let currentUrl = null;
 let currentPalette = [...DEFAULT_PALETTE];
+let generationTimer = null;
+let isGenerating = false;
 
 function clamp(value, minimum, maximum) {
   return Math.min(maximum, Math.max(minimum, value));
@@ -41,6 +50,13 @@ function mix(hex, target, amount) {
   return rgbToHex(source.map((channel, index) => channel + (destination[index] - channel) * amount));
 }
 
+function relativeLuminance(hex) {
+  const channels = hexToRgb(hex).map((channel) => channel / 255).map((channel) => (
+    channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4
+  ));
+  return (0.2126 * channels[0]) + (0.7152 * channels[1]) + (0.0722 * channels[2]);
+}
+
 function saturation([red, green, blue]) {
   const highest = Math.max(red, green, blue);
   const lowest = Math.min(red, green, blue);
@@ -49,6 +65,20 @@ function saturation([red, green, blue]) {
 
 function colorDistance(first, second) {
   return Math.sqrt(first.reduce((total, channel, index) => total + (channel - second[index]) ** 2, 0));
+}
+
+function prefersReducedMotion() {
+  return window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+}
+
+function pulseTheme() {
+  if (prefersReducedMotion()) return;
+  document.body.classList.remove("theme-transition");
+  // Force a reflow so repeated palette generations retrigger the wash.
+  void document.body.offsetWidth;
+  document.body.classList.add("theme-transition");
+  window.clearTimeout(pulseTheme.timeout);
+  pulseTheme.timeout = window.setTimeout(() => document.body.classList.remove("theme-transition"), 760);
 }
 
 function samplePalette(image) {
@@ -71,10 +101,7 @@ function samplePalette(image) {
   }
 
   const candidates = [...bins.values()]
-    .map((entry) => ({
-      count: entry.count,
-      rgb: entry.sums.map((total) => total / entry.count),
-    }))
+    .map((entry) => ({ count: entry.count, rgb: entry.sums.map((total) => total / entry.count) }))
     .sort((first, second) => second.count - first.count);
 
   const chosen = [];
@@ -86,46 +113,72 @@ function samplePalette(image) {
   return chosen.map(rgbToHex);
 }
 
-function updateTheme(palette) {
-  const colors = palette.map(hexToRgb);
-  const accentIndex = colors.reduce((bestIndex, color, index) => saturation(color) > saturation(colors[bestIndex]) ? index : bestIndex, 0);
-  const accent = palette[accentIndex];
-  const secondary = palette.find((color) => color !== accent && colorDistance(hexToRgb(color), hexToRgb(accent)) > 75) || palette[1];
-  const deep = rgbToHex(colors.reduce((darkest, color) => color.reduce((sum, channel) => sum + channel, 0) < darkest.reduce((sum, channel) => sum + channel, 0) ? color : darkest));
-  const tint = mix(accent, "#ffffff", 0.78);
-  document.documentElement.style.setProperty("--accent", accent);
-  document.documentElement.style.setProperty("--accent-soft", tint);
-  document.documentElement.style.setProperty("--secondary", secondary);
-  document.documentElement.style.setProperty("--deep", deep);
-  document.querySelector("#accent-role").textContent = accent.toUpperCase();
-  document.querySelector("#canvas-role").textContent = `${tint.toUpperCase()} tint`;
+function updateState(state, message) {
+  actionStatus.dataset.state = state;
+  actionStatus.textContent = message;
 }
 
-function updatePalette(palette) {
-  currentPalette = palette;
+function updateTheme(palette, animate = false) {
+  const colors = palette.map(hexToRgb);
+  const accentIndex = colors.reduce((bestIndex, color, index) => (
+    saturation(color) > saturation(colors[bestIndex]) ? index : bestIndex
+  ), 0);
+  const sourceAccent = palette[accentIndex];
+  const accent = relativeLuminance(sourceAccent) > 0.44 ? mix(sourceAccent, "#171719", 0.38) : sourceAccent;
+  const secondary = palette.find((color) => color !== sourceAccent && colorDistance(hexToRgb(color), hexToRgb(sourceAccent)) > 75) || palette[1];
+  const deep = rgbToHex(colors.reduce((darkest, color) => (
+    color.reduce((sum, channel) => sum + channel, 0) < darkest.reduce((sum, channel) => sum + channel, 0) ? color : darkest
+  )));
+  const tint = mix(sourceAccent, "#ffffff", 0.78);
+  const canvas = mix("#f4f0e9", tint, 0.24);
+  const surface = mix("#fffdf9", tint, 0.13);
+  const surfaceMuted = mix("#f3eee7", tint, 0.34);
+  const rule = mix("#d9d2c8", sourceAccent, 0.16);
+  const accentContrast = relativeLuminance(accent) < 0.43 ? "#ffffff" : "#171719";
+  const root = document.documentElement;
+
+  [["--canvas", canvas], ["--surface", surface], ["--surface-muted", surfaceMuted], ["--rule", rule],
+    ["--accent", accent], ["--accent-soft", tint], ["--accent-contrast", accentContrast],
+    ["--secondary", secondary], ["--deep", deep], ["--photo-accent", sourceAccent], ["--photo-tint", tint]]
+    .forEach(([name, value]) => root.style.setProperty(name, value));
+
+  document.querySelector("#accent-role").textContent = sourceAccent.toUpperCase();
+  document.querySelector("#canvas-role").textContent = `${canvas.toUpperCase()} tint`;
+  document.querySelector("#approach-role").textContent = "Source-led contrast and hierarchy";
+  if (animate) pulseTheme();
+}
+
+function updatePalette(palette, animate = false) {
+  currentPalette = [...palette];
   swatches.forEach((swatch, index) => {
     swatch.style.setProperty("--swatch", palette[index]);
     swatch.title = palette[index].toUpperCase();
+    swatch.setAttribute("aria-label", `Observed color ${index + 1}: ${palette[index].toUpperCase()}`);
   });
-  paletteBars.forEach((bar, index) => { bar.style.background = palette[index]; });
+  [...paletteBars, ...miniSwatches].forEach((shape, index) => {
+    shape.style.background = palette[index % palette.length];
+  });
   document.querySelector("#story-count").textContent = "5 / 5";
-  updateTheme(palette);
+  updateTheme(palette, animate);
 }
 
 function selectedObject() {
-  return document.querySelector('input[name="object"]:checked').value;
+  return document.querySelector('input[name="object"]:checked')?.value || "flower";
 }
 
 function updateCardCopy() {
   const title = titleInput.value.trim() || "A little color for you";
   const message = messageInput.value.trim() || "Made from the colors in your photo.";
-  const objectName = selectedObject().toUpperCase();
+  const objectName = selectedObject() === "auto" ? "OBJECT" : selectedObject().toUpperCase();
   document.querySelectorAll(".card-title-output").forEach((node) => { node.textContent = title; });
   document.querySelectorAll(".card-message-output").forEach((node) => { node.textContent = message; });
   document.querySelectorAll(".card-object").forEach((node) => { node.textContent = objectName; });
 }
 
-function resetPhoto() {
+function resetPhoto({ errorMessage = "" } = {}) {
+  window.clearTimeout(generationTimer);
+  generationTimer = null;
+  isGenerating = false;
   if (currentUrl) URL.revokeObjectURL(currentUrl);
   currentUrl = null;
   fileInput.value = "";
@@ -137,22 +190,29 @@ function resetPhoto() {
   storyImage.hidden = true;
   sourcePlaceholder.hidden = false;
   generateButton.disabled = true;
+  generateButton.setAttribute("aria-busy", "false");
+  generateLabel.textContent = "Generate 3 cards";
   results.hidden = true;
-  photoError.textContent = "";
-  actionStatus.textContent = "Add a photo to begin. No AI or server is connected.";
-  updatePalette(DEFAULT_PALETTE);
+  photoError.textContent = errorMessage;
+  updateState(errorMessage ? "invalid" : "empty", errorMessage || "Add a photo to begin. Processing stays in this browser tab.");
+  updatePalette(DEFAULT_PALETTE, false);
   document.querySelector("#story-count").textContent = "0 / 5";
   document.querySelector("#accent-role").textContent = "Waiting for photo";
   document.querySelector("#canvas-role").textContent = "Warm neutral";
+  document.querySelector("#approach-role").textContent = "Quiet surfaces, restrained color";
+  resultStatusTitle.textContent = "Your three cards are ready.";
+  resultStatusCopy.textContent = "5 colors observed · 3 directions composed.";
 }
 
 function loadPhoto(file) {
   photoError.textContent = "";
-  if (!file || !["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+  if (!file || !ALLOWED_TYPES.has(file.type)) {
+    if (!currentUrl) updateState("invalid", "Choose a JPG, PNG, or WebP image.");
     photoError.textContent = "Choose a JPG, PNG, or WebP image.";
     return;
   }
-  if (file.size > 12 * 1024 * 1024) {
+  if (file.size > MAX_FILE_SIZE) {
+    if (!currentUrl) updateState("invalid", "Choose an image smaller than 12 MB for this preview.");
     photoError.textContent = "Choose an image smaller than 12 MB for this preview.";
     return;
   }
@@ -161,6 +221,7 @@ function loadPhoto(file) {
   const probe = new Image();
   probe.onload = () => {
     sourceImage.src = currentUrl;
+    sourceImage.alt = `Selected source photo: ${file.name}`;
     storyImage.src = currentUrl;
     cardImages.forEach((image) => { image.src = currentUrl; });
     fileName.textContent = file.name;
@@ -169,22 +230,28 @@ function loadPhoto(file) {
     sourcePlaceholder.hidden = true;
     storyImage.hidden = false;
     generateButton.disabled = false;
-    actionStatus.textContent = "Ready to preview. Processing stays in this tab.";
-    updatePalette(samplePalette(probe));
+    updateState("ready", "Ready to make a color story. Processing stays in this browser tab.");
+    updatePalette(samplePalette(probe), true);
     updateCardCopy();
   };
-  probe.onerror = () => {
-    photoError.textContent = "We could not read that image. Try another file.";
-    resetPhoto();
-  };
+  probe.onerror = () => resetPhoto({ errorMessage: "We couldn't read that image. Try another file." });
   probe.src = currentUrl;
 }
 
 fileInput.addEventListener("change", () => loadPhoto(fileInput.files[0]));
-removePhoto.addEventListener("click", (event) => { event.preventDefault(); event.stopPropagation(); resetPhoto(); });
+removePhoto.addEventListener("click", (event) => {
+  event.preventDefault();
+  event.stopPropagation();
+  resetPhoto();
+});
 titleInput.addEventListener("input", updateCardCopy);
 messageInput.addEventListener("input", updateCardCopy);
-document.querySelectorAll('input[name="object"]').forEach((input) => input.addEventListener("change", updateCardCopy));
+document.querySelectorAll('input[name="object"]').forEach((input) => input.addEventListener("change", () => {
+  updateCardCopy();
+  modeStatus.innerHTML = input.value === "auto"
+    ? "<strong>Demo Mode</strong> · Auto has no model confidence yet."
+    : "<strong>Demo Mode</strong> · choose the object yourself.";
+}));
 
 ["dragenter", "dragover"].forEach((eventName) => dropzone.addEventListener(eventName, (event) => {
   event.preventDefault();
@@ -198,16 +265,37 @@ dropzone.addEventListener("drop", (event) => loadPhoto(event.dataTransfer.files[
 
 form.addEventListener("submit", (event) => {
   event.preventDefault();
-  if (!currentUrl) return;
-  updateCardCopy();
-  results.hidden = false;
-  actionStatus.textContent = "Frontend preview ready — no AI or server was called.";
-  results.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+  if (!currentUrl || isGenerating) return;
+  isGenerating = true;
+  generateButton.disabled = true;
+  generateButton.setAttribute("aria-busy", "true");
+  generateLabel.textContent = "Finding the color story…";
+  updateState("loading", "Finding the color story… This stays in your browser tab.");
+  generationTimer = window.setTimeout(() => {
+    try {
+      results.hidden = false;
+      resultStatusTitle.textContent = "Your three cards are ready.";
+      resultStatusCopy.textContent = "5 colors observed · 3 directions composed.";
+      updateState("success", "Your three cards are ready. Browser preview only — no AI or server was called.");
+    } catch (_error) {
+      results.hidden = true;
+      updateState("error", "We couldn’t create the cards. Check that an image is uploaded, then try again.");
+    }
+    generateLabel.textContent = "Generate 3 cards";
+    generateButton.disabled = false;
+    generateButton.setAttribute("aria-busy", "false");
+    isGenerating = false;
+    if (!results.hidden) {
+      updateTheme(currentPalette, true);
+      results.scrollIntoView({ behavior: prefersReducedMotion() ? "auto" : "smooth", block: "start" });
+    }
+  }, 420);
 });
 
 document.querySelector("#start-over").addEventListener("click", () => {
   resetPhoto();
-  document.querySelector("#studio").scrollIntoView({ behavior: "smooth", block: "start" });
+  document.querySelector("#studio").scrollIntoView({ behavior: prefersReducedMotion() ? "auto" : "smooth", block: "start" });
 });
 
 updateCardCopy();
+resetPhoto();

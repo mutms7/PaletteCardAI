@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="A frontend-only preview of PaletteCard AI, a small color studio for turning one photo into three card directions." />
-    <title>PaletteCard AI — Frontend Preview</title>
+    <title>PaletteCard AI — Color Studio Preview</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="styles.css" />
     <script src="app.js" defer></script>
@@ -18,7 +18,7 @@
         <span>PaletteCard</span>
       </a>
       <div class="header-meta">
-        <span class="status-badge"><span aria-hidden="true"></span> Frontend preview</span>
+        <span class="status-badge"><span aria-hidden="true"></span> Local by default</span>
         <a href="#privacy">How this preview works</a>
       </div>
     </header>
@@ -33,7 +33,7 @@
           <p>Bring one flower, heart, ring, cake, or balloon. PaletteCard turns its visual character into three considered card directions.</p>
           <div class="privacy-line" id="privacy">
             <span aria-hidden="true">○</span>
-            <p><strong>AI disconnected for this preview.</strong> Your image stays inside this browser tab and is never uploaded.</p>
+            <p><strong>Runs on this computer by default.</strong> This browser preview keeps your image in this tab and never uploads it.</p>
           </div>
         </div>
       </section>
@@ -45,17 +45,17 @@
               <p class="step-label">01 · Source</p>
               <h2>Choose one photo</h2>
             </div>
-            <span class="local-label">Local preview</span>
+            <span class="local-label">Browser preview</span>
           </div>
 
-          <label class="dropzone" id="dropzone" for="photo-input">
+          <label class="dropzone" id="dropzone" for="photo-input" aria-describedby="upload-hint photo-error">
             <input id="photo-input" type="file" accept="image/jpeg,image/png,image/webp" />
             <span class="upload-empty" id="upload-empty">
               <span class="upload-icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24"><path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4" /></svg>
               </span>
               <strong>Drop a photo of one centered object</strong>
-              <span>Flower, heart, ring, cake, or balloon</span>
+              <span id="upload-hint">Flower, heart, ring, cake, or balloon · JPG, PNG, or WebP</span>
               <span class="browse-button">Browse photo</span>
             </span>
             <span class="upload-preview" id="upload-preview" hidden>
@@ -68,10 +68,12 @@
           </label>
           <p class="field-error" id="photo-error" role="alert"></p>
 
-          <fieldset class="object-fieldset">
-            <legend>What is in the photo?</legend>
-            <p>Choose manually while the AI is disconnected.</p>
+          <fieldset class="object-fieldset" aria-describedby="mode-helper">
+            <legend>How should we identify it?</legend>
+            <p id="mode-helper">Demo Mode uses your choice. Model Mode can make an Auto prediction.</p>
+            <p class="mode-status" id="mode-status"><strong>Demo Mode</strong> · choose the object yourself.</p>
             <div class="object-options">
+              <label class="is-disabled"><input type="radio" name="object" value="auto" disabled /><span>Auto</span></label>
               <label><input type="radio" name="object" value="flower" checked /><span>Flower</span></label>
               <label><input type="radio" name="object" value="heart" /><span>Heart</span></label>
               <label><input type="radio" name="object" value="ring" /><span>Ring</span></label>
@@ -91,11 +93,11 @@
             </label>
           </div>
 
-          <button class="primary-action" id="generate-button" type="submit" disabled>
-            Preview 3 card directions
+          <button class="primary-action" id="generate-button" type="submit" disabled aria-describedby="action-status">
+            <span id="generate-label">Generate 3 cards</span>
             <span aria-hidden="true">↗</span>
           </button>
-          <p class="action-note" id="action-status" aria-live="polite">Add a photo to begin. No AI or server is connected.</p>
+          <p class="action-note" id="action-status" aria-live="polite">Add a photo to begin. Processing stays in this browser tab.</p>
         </form>
 
         <aside class="story-panel" aria-labelledby="story-title">
@@ -103,6 +105,7 @@
             <div>
               <p class="step-label">02 · Translation</p>
               <h2 id="story-title">Color story</h2>
+              <p class="story-helper">Observed in the photo, then translated into design roles.</p>
             </div>
             <span class="story-count" id="story-count">0 / 5</span>
           </div>
@@ -130,10 +133,15 @@
           </div>
 
           <dl class="role-list">
-            <div><dt>Canvas</dt><dd id="canvas-role">Warm neutral</dd></div>
-            <div><dt>Accent</dt><dd id="accent-role">Waiting for photo</dd></div>
-            <div><dt>Approach</dt><dd>Quiet surfaces, restrained color</dd></div>
+            <div><dt>Derived · Canvas</dt><dd id="canvas-role">Warm neutral</dd></div>
+            <div><dt>Derived · Accent</dt><dd id="accent-role">Waiting for photo</dd></div>
+            <div><dt>Derived · Approach</dt><dd id="approach-role">Quiet surfaces, restrained color</dd></div>
           </dl>
+
+          <details class="color-inspection">
+            <summary>Inspect source and derived roles</summary>
+            <p><strong>Source colors</strong> are the five swatches observed from your image. <strong>Derived roles</strong> tune contrast and hierarchy for the preview.</p>
+          </details>
 
           <div class="offline-note">
             <span aria-hidden="true">◇</span>
@@ -146,12 +154,17 @@
         <div class="results-heading">
           <div>
             <p class="eyebrow">03 · Directions</p>
-            <h2 id="results-title">Three ways the story could feel.</h2>
+            <h2 id="results-title">Three directions, ready to explore</h2>
           </div>
           <div class="results-meta">
-            <span>Frontend preview · no files generated</span>
+            <span>Browser preview · no files generated</span>
             <button id="start-over" type="button">Start over</button>
           </div>
+        </div>
+
+        <div class="result-status" id="result-status" role="status" aria-live="polite">
+          <strong id="result-status-title">Your three cards are ready.</strong>
+          <span id="result-status-copy">5 colors observed · 3 directions composed.</span>
         </div>
 
         <div class="card-grid">
@@ -196,7 +209,7 @@
         </div>
 
         <div class="results-note">
-          <p><strong>This is the lightweight frontend.</strong> Recognition, trained palette decisions, PNG rendering, and downloads will return when the backend is reconnected.</p>
+          <p><strong>Preview boundary.</strong> This Vercel version samples colors and composes card previews in your browser. It has no model confidence, server upload, or PNG download.</p>
         </div>
       </section>
     </main>
