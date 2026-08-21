@@ -1,0 +1,43 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.venv/
+venv/
+dist/
+build/
+.mypy_cache/
+.coverage
+htmlcov/
+.env
+!.env.example
+
+# Local data and model outputs. Keep the directory placeholders in git.
+data/**/*.jpg
+data/**/*.jpeg
+data/**/*.png
+data/**/*.webp
+data/**/*.npz
+artifacts/checkpoints/*
+artifacts/metrics/*
+artifacts/cards/*
+artifacts/dataset_audit/*
+!artifacts/checkpoints/.gitkeep
+!artifacts/checkpoints/best.pt
+!artifacts/checkpoints/palette.pt
+!artifacts/metrics/.gitkeep
+!artifacts/cards/.gitkeep
+
+# Generated/private review material and local acquisition records. The
+# published prototype includes model checkpoints, not the source thumbnails.
+audit/
+artifacts/current_probe_*/
+artifacts/design_review/
+artifacts/runtime/
+data/google_candidates/
+data/google_thumbnails/
+data/thumbnail_dataset/
+data/palette_training/
+CLAUDE_DESIGN_BRIEF.md
+CLAUDE_HANDOFF.zip
+.vercel/

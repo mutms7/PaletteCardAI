@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "palette-card-ai"
+version = "0.1.0"
+description = "A beginner-friendly object recognition, color palette, and card generation project"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+authors = [{ name = "PaletteCard contributors" }]
+dependencies = [
+  "numpy>=1.24,<3",
+  "Pillow>=10,<13",
+  "scikit-learn>=1.3,<2",
+  "torch>=2.1,<3",
+  "torchvision>=0.16,<1",
+  "gradio>=4.0,<7",
+  "fastapi>=0.115,<1",
+  "uvicorn>=0.30,<1",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.4,<9", "pytest-cov>=4,<7"]
+plot = ["matplotlib>=3.7,<4"]
+
+[project.scripts]
+palette-card-app = "palette_card.app:main"
+palette-card-train = "palette_card.training:main"
+palette-card-prepare = "palette_card.training:prepare_main"
+palette-card-serve = "palette_card.server:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-ra"
+
+[tool.vercel]
+entrypoint = "vercel_app:app"
