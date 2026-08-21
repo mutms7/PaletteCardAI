@@ -41,3 +41,4 @@ data/palette_training/
 CLAUDE_DESIGN_BRIEF.md
 CLAUDE_HANDOFF.zip
 .vercel/
+.env.local
