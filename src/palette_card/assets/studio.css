@@ -1,11 +1,17 @@
 :root {
   --canvas: #f7f4ef;
   --surface: #fffdf9;
+  --surface-muted: #f3eee7;
   --ink: #171719;
   --muted: #6f6b66;
   --rule: #ded8cf;
   --accent: #8d1738;
   --accent-soft: #ead8d2;
+  --accent-contrast: #ffffff;
+  --secondary: #344992;
+  --decorative: #ead8d2;
+  --photo-accent: #8d1738;
+  --photo-tint: #ead8d2;
   --success: #27634f;
   --danger: #9e2f2f;
   --radius-sm: 8px;
@@ -25,9 +31,12 @@
 /* The app stays neutral before upload so photo-derived color can remain the
    visual focus. The compact accent is reserved for actions and rules. */
 .gradio-container {
+  box-sizing: border-box !important;
   max-width: 1240px !important;
+  width: 100% !important;
+  min-width: 0 !important;
   margin: 0 auto !important;
-  padding: 0 var(--space-6) var(--space-8) !important;
+  padding: 0 clamp(16px, 2.5vw, 32px) var(--space-8) !important;
   background: var(--canvas) !important;
   color: var(--ink) !important;
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
@@ -50,7 +59,7 @@
   text-decoration: none;
 }
 
-.pc-wordmark span { color: var(--accent); }
+.pc-wordmark span { color: var(--photo-accent); }
 
 .pc-header-meta,
 .pc-mode-row,
@@ -71,7 +80,7 @@
   border: 1px solid var(--rule);
   border-radius: 999px;
   padding: 6px 10px;
-  background: var(--surface);
+  background: var(--accent-soft);
   color: var(--success);
   font-size: 0.7rem;
   font-weight: 700;
@@ -142,6 +151,7 @@
 .pc-studio-grid {
   align-items: stretch;
   gap: var(--space-6);
+  min-width: 0;
 }
 
 .pc-input-rail,
@@ -158,13 +168,13 @@
 
 #pc-image {
   min-height: 300px;
-  border: 1px dashed #b9b0a6;
+  border: 1px dashed var(--rule);
   border-radius: var(--radius-md);
-  background: #f3eee7;
+  background: var(--surface-muted);
 }
 
-#pc-image:hover { border-color: var(--accent); }
-#pc-image:focus-within { outline: 3px solid rgb(141 23 56 / 24%); outline-offset: 3px; }
+#pc-image:hover { border-color: var(--photo-accent); }
+#pc-image:focus-within { outline: 3px solid color-mix(in srgb, var(--accent) 24%, transparent); outline-offset: 3px; }
 
 .pc-source-note,
 .pc-local-note,
@@ -192,11 +202,11 @@
   min-height: 52px;
   border: 1px solid var(--accent) !important;
   background: var(--accent) !important;
-  color: #fff !important;
+  color: var(--accent-contrast) !important;
   letter-spacing: 0.01em;
 }
 
-.pc-cta:hover:not([disabled]) { background: #6e102c !important; }
+.pc-cta:hover:not([disabled]) { background: color-mix(in srgb, var(--accent) 82%, var(--ink)) !important; }
 .pc-cta[disabled] { opacity: 0.48; }
 
 .pc-source-rail { display: flex; flex-direction: column; justify-content: space-between; }
@@ -227,7 +237,7 @@
 }
 
 .pc-empty-example { margin: 0 0 var(--space-7) !important; }
-.pc-empty-example span { color: var(--accent); font-size: 1.2rem; }
+.pc-empty-example span { color: var(--decorative); font-size: 1.2rem; }
 
 .pc-contract-list { border-top: 1px solid var(--rule); }
 .pc-source-contract {
@@ -264,7 +274,15 @@
 
 #pc-start-over { min-width: 110px; }
 .pc-gallery { margin-top: var(--space-4); }
-.pc-gallery .grid-wrap { gap: var(--space-4) !important; }
+.pc-gallery .grid-wrap {
+  gap: var(--space-4) !important;
+  min-width: 0;
+  overflow-x: auto !important;
+}
+.pc-gallery .grid-container {
+  width: 100%;
+  min-width: 0;
+}
 .pc-gallery .thumbnail-item { border-radius: var(--radius-md) !important; }
 .pc-downloads { margin-top: var(--space-4); }
 
@@ -272,7 +290,7 @@
   margin-top: var(--space-5);
   border-top: 1px solid var(--rule) !important;
   border-bottom: 1px solid var(--rule) !important;
-  background: transparent !important;
+  background: var(--photo-tint) !important;
 }
 
 .pc-color-story > div:first-child { padding: var(--space-4) 0 !important; }
@@ -284,7 +302,7 @@
   display: inline-block;
   width: 32px;
   height: 32px;
-  border: 1px solid rgb(23 23 25 / 18%);
+  border: 1px solid color-mix(in srgb, var(--ink) 18%, transparent);
   border-radius: 50%;
   background: var(--swatch);
   box-shadow: 0 0 0 3px var(--surface);
@@ -307,6 +325,45 @@
 .pc-footer strong { color: var(--ink); }
 .pc-footer code { font-size: 0.75rem; }
 
+/* The payload is a DOM bridge only; the browser should never display it. */
+.pc-theme-payload { display: none !important; }
+
+/* A short, colorful wash makes a newly derived story feel site-wide while
+   preserving the calm editorial layout between generations. */
+.gradio-container,
+.pc-header,
+.pc-input-rail,
+.pc-source-rail,
+.pc-results,
+.pc-color-story,
+.pc-footer,
+.pc-swatch {
+  transition:
+    color 560ms ease,
+    background-color 560ms ease,
+    border-color 560ms ease,
+    box-shadow 560ms ease;
+}
+
+body.pc-theme-transition::after {
+  position: fixed;
+  z-index: 9999;
+  inset: 0;
+  pointer-events: none;
+  content: "";
+  background:
+    radial-gradient(circle at 12% 12%, color-mix(in srgb, var(--accent) 24%, transparent), transparent 34%),
+    radial-gradient(circle at 88% 82%, color-mix(in srgb, var(--secondary) 20%, transparent), transparent 38%);
+  opacity: 0;
+  animation: pc-theme-wash 760ms ease-out both;
+}
+
+@keyframes pc-theme-wash {
+  0% { opacity: 0; }
+  22% { opacity: 0.78; }
+  100% { opacity: 0; }
+}
+
 button:focus-visible,
 a:focus-visible,
 input:focus-visible,
@@ -318,7 +375,6 @@ select:focus-visible,
 }
 
 @media (max-width: 820px) {
-  .gradio-container { padding: 0 var(--space-4) var(--space-7) !important; }
   .pc-hero { padding: var(--space-7) 0 var(--space-6); }
   .pc-hero h1 { font-size: clamp(2.8rem, 14vw, 5rem); }
   .pc-studio-grid { flex-direction: column !important; }
@@ -326,8 +382,11 @@ select:focus-visible,
   .pc-source-rail { min-height: auto; }
   .pc-empty-state { margin-top: var(--space-6) !important; }
   .pc-results { margin-top: var(--space-7); }
-  .pc-gallery .grid-wrap { grid-template-columns: repeat(3, minmax(220px, 1fr)) !important; overflow-x: auto; }
-  .pc-gallery .grid-container { overflow-x: auto; }
+  .pc-gallery .grid-container {
+    width: max-content;
+    min-width: 100%;
+    grid-template-columns: repeat(3, minmax(220px, 1fr)) !important;
+  }
 }
 
 @media (max-width: 520px) {
@@ -341,7 +400,11 @@ select:focus-visible,
   #pc-image { min-height: 250px; }
   .pc-story-grid { grid-template-columns: 1fr; gap: var(--space-4); }
   .pc-results-heading { align-items: flex-start; flex-direction: column; gap: var(--space-3); }
-  .pc-gallery .grid-wrap { grid-template-columns: repeat(3, minmax(180px, 1fr)) !important; }
+  .pc-gallery .grid-container {
+    width: max-content;
+    min-width: 100%;
+    grid-template-columns: repeat(3, minmax(180px, 1fr)) !important;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -350,5 +413,21 @@ select:focus-visible,
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+
+  .gradio-container,
+  .pc-header,
+  .pc-input-rail,
+  .pc-source-rail,
+  .pc-results,
+  .pc-color-story,
+  .pc-footer,
+  .pc-swatch {
+    transition: none !important;
+  }
+
+  body.pc-theme-transition::after {
+    display: none !important;
+    animation: none !important;
   }
 }

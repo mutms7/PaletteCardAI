@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import ast
 import html
+import json
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -19,8 +20,9 @@ from PIL import Image
 from .card import render_card_set, save_cards
 from .config import CLASS_NAMES, Paths
 from .model import load_checkpoint, predict, select_device
-from .palette import derive_palette_roles, extract_palette
+from .palette import contrast_ratio, derive_palette_roles, extract_palette
 from .runtime import cleanup_generated_cards, validate_upload_image
+from .design import oklch_to_srgb, srgb_to_oklch
 
 
 _ASSET_DIR = Path(__file__).with_name("assets")
@@ -28,6 +30,22 @@ _DEFAULT_TITLE = "A little color for you"
 _DEFAULT_MESSAGE = "Made from the colors in your photo."
 _EMPTY_STATE_COPY = "Upload a photo to begin."
 _PRIVACY_COPY = "Runs on this computer by default. Generated PNGs stay in the configured local output folder until you remove them."
+_DEFAULT_STUDIO_THEME = {
+    "canvas": "#f7f4ef",
+    "surface": "#fffdf9",
+    "surface-muted": "#f3eee7",
+    "ink": "#171719",
+    "muted": "#6f6b66",
+    "rule": "#ded8cf",
+    "accent": "#8d1738",
+    "accent-soft": "#ead8d2",
+    "accent-contrast": "#ffffff",
+    "secondary": "#344992",
+    "decorative": "#ead8d2",
+    "photo-accent": "#8d1738",
+    "photo-tint": "#ead8d2",
+}
+_STUDIO_THEME_KEYS = tuple(_DEFAULT_STUDIO_THEME)
 
 
 def _load_studio_css() -> str:
@@ -37,6 +55,236 @@ def _load_studio_css() -> str:
         return (_ASSET_DIR / "studio.css").read_text(encoding="utf-8")
     except OSError:  # pragma: no cover - source checkout always includes the asset
         return ""
+
+
+def _load_studio_js() -> str:
+    """Load the tiny progressive-enhancement theme animator."""
+
+    try:
+        return (_ASSET_DIR / "studio.js").read_text(encoding="utf-8")
+    except OSError:  # pragma: no cover - source checkout always includes the asset
+        return ""
+
+
+def _role_value(roles: object, name: str) -> object:
+    if isinstance(roles, dict):
+        return roles[name]
+    return getattr(roles, name)
+
+
+def _role_or(roles: object, name: str, fallback: object) -> object:
+    """Read a semantic role while tolerating compact status-test mappings."""
+
+    try:
+        return _role_value(roles, name)
+    except (AttributeError, KeyError):
+        return fallback
+
+
+def _role_rgb(value: object) -> tuple[int, int, int]:
+    """Accept a DesignPalette role or its status-text hex representation."""
+
+    if isinstance(value, str):
+        match = re.fullmatch(r"#([0-9a-fA-F]{6})", value.strip())
+        if not match:
+            raise ValueError(f"Invalid role color: {value!r}")
+        token = match.group(1)
+        return tuple(int(token[index:index + 2], 16) for index in (0, 2, 4))  # type: ignore[return-value]
+    rgb = getattr(value, "rgb", value)
+    if len(rgb) != 3:
+        raise ValueError("Role colors must have exactly three channels")
+    return tuple(max(0, min(255, int(round(float(channel))))) for channel in rgb)  # type: ignore[return-value]
+
+
+def _hex_rgb(value: object) -> str:
+    return "#%02X%02X%02X" % _role_rgb(value)
+
+
+def _derive_studio_tint(
+    value: object,
+    *,
+    lightness_shift: float,
+    chroma_scale: float,
+    chroma_cap: float,
+    lightness_floor: float = 0.06,
+    lightness_ceiling: float = 0.97,
+) -> str:
+    """Make a restrained UI tint from an already-derived semantic role.
+
+    The UI never invents a hue.  It moves the existing role in OKLCH and lets
+    the shared design conversion helper gamut-map the result to sRGB.
+    """
+
+    lightness, chroma, hue = srgb_to_oklch(_role_rgb(value))
+    # UI tints are always lifted toward a light floor.  A dark source accent
+    # must not turn ``accent-soft`` into another dark surface just because its
+    # source lightness happened to be above/below an arbitrary midpoint.
+    target_lightness = max(
+        lightness_floor,
+        min(lightness_ceiling, lightness + lightness_shift),
+    )
+    target_chroma = min(max(0.0, chroma * chroma_scale), chroma_cap)
+    return _hex_rgb(oklch_to_srgb((target_lightness, target_chroma, hue)))
+
+
+def _derive_studio_role(
+    value: object,
+    *,
+    lightness_shift: float = 0.0,
+    chroma_scale: float = 1.0,
+    chroma_cap: float = 0.025,
+) -> str:
+    """Round-trip a semantic role through OKLCH before exposing it to CSS.
+
+    Canvas and surface are intentionally inherited from the design engine,
+    rather than being hard-coded UI colors.  The explicit OKLCH round-trip
+    keeps this presentation mapping on the same perceptual conversion path as
+    the design roles and gives the tint/rule helpers one consistent contract.
+    """
+
+    return _derive_studio_tint(
+        value,
+        lightness_shift=lightness_shift,
+        chroma_scale=chroma_scale,
+        chroma_cap=chroma_cap,
+        lightness_floor=0.06,
+        lightness_ceiling=0.99,
+    )
+
+
+def _derive_studio_muted(value: object, surface: object) -> str:
+    """Derive a subdued text token and keep it readable on the surface."""
+
+    lightness, chroma, hue = srgb_to_oklch(_role_rgb(value))
+    # Most on-surface roles are dark because the design engine targets a light
+    # editorial canvas.  Keep muted text in a restrained mid-dark range even
+    # if a future learned role supplies a light on-surface value.
+    target_lightness = min(0.58, max(0.30, lightness + 0.18))
+    target_chroma = min(max(0.0, chroma * 0.12), 0.035)
+    surface_rgb = _role_rgb(surface)
+    candidates = [
+        target_lightness,
+        *sorted(
+            (0.08 + index * 0.03 for index in range(30)),
+            key=lambda candidate: abs(candidate - target_lightness),
+        ),
+    ]
+    for candidate_lightness in candidates:
+        candidate = oklch_to_srgb((candidate_lightness, target_chroma, hue))
+        if contrast_ratio(candidate, surface_rgb) >= 4.5:
+            return _hex_rgb(candidate)
+    # This is only reachable for an unusually dark surface with a constrained
+    # gamut.  Preserve the readable semantic contract with a neutral fallback.
+    return _hex_rgb((24, 24, 28) if contrast_ratio((24, 24, 28), surface_rgb) >= 4.5 else (240, 240, 244))
+
+
+def derive_studio_theme(roles: object) -> dict[str, str]:
+    """Map a derived DesignPalette to the CSS tokens used by the studio.
+
+    ``roles`` may be a :class:`DesignPalette` or the safe hex mapping emitted
+    in the status text.  Keeping this mapping here preserves analyze_image's
+    established three-value contract while making the browser theme explicit.
+    """
+
+    background = _role_value(roles, "background")
+    surface = _role_value(roles, "surface")
+    accent = _role_value(roles, "accent")
+    secondary = _role_value(roles, "secondary")
+    on_surface = _role_or(roles, "on_surface", _role_or(roles, "text", "#171719"))
+    on_accent = _role_or(roles, "on_accent", "#FFFFFF")
+
+    # Keep the large surfaces neutral and photo-led, while still routing every
+    # token through the shared perceptual helpers.  Accents/tints are derived
+    # from semantic roles; no UI hue is introduced here.
+    canvas = _derive_studio_role(background, chroma_scale=1.0, chroma_cap=0.025)
+    surface_hex = _derive_studio_role(surface, chroma_scale=1.0, chroma_cap=0.025)
+    accent_soft = _derive_studio_tint(
+        accent,
+        lightness_shift=0.30,
+        chroma_scale=0.34,
+        chroma_cap=0.085,
+        lightness_floor=0.82,
+    )
+    rule = _derive_studio_tint(
+        accent,
+        lightness_shift=0.43,
+        chroma_scale=0.16,
+        chroma_cap=0.045,
+        lightness_floor=0.78,
+    )
+    muted = _derive_studio_muted(on_surface, surface)
+    surface_muted = _derive_studio_tint(
+        accent,
+        lightness_shift=0.22,
+        chroma_scale=0.30,
+        chroma_cap=0.06,
+        lightness_floor=0.88,
+    )
+    decorative = _derive_studio_tint(
+        secondary,
+        lightness_shift=0.25,
+        chroma_scale=0.28,
+        chroma_cap=0.075,
+        lightness_floor=0.82,
+    )
+    accent_hex = _hex_rgb(accent)
+    soft_hex = accent_soft
+    return {
+        "canvas": canvas,
+        "surface": surface_hex,
+        "surface-muted": surface_muted,
+        "ink": _hex_rgb(on_surface),
+        "muted": muted,
+        "rule": rule,
+        "accent": accent_hex,
+        "accent-soft": soft_hex,
+        "accent-contrast": _hex_rgb(on_accent),
+        "secondary": _hex_rgb(secondary),
+        "decorative": decorative,
+        "photo-accent": accent_hex,
+        "photo-tint": soft_hex,
+    }
+
+
+def _roles_from_status(status: str) -> dict[str, object] | None:
+    roles_line = next((line for line in status.splitlines() if line.startswith("Design roles (derived):")), "")
+    if not roles_line:
+        return None
+    try:
+        roles = ast.literal_eval(roles_line.split(":", 1)[1].strip())
+    except (SyntaxError, ValueError):
+        return None
+    return roles if isinstance(roles, dict) else None
+
+
+def _studio_theme_from_status(status: str) -> dict[str, str] | None:
+    roles = _roles_from_status(status)
+    if not roles:
+        return None
+    try:
+        return derive_studio_theme(roles)
+    except (KeyError, TypeError, ValueError):
+        return None
+
+
+def _theme_payload_html(theme: dict[str, str] | None = None) -> str:
+    """Return a hidden DOM payload consumed by the local studio.js observer."""
+
+    # The payload is an internal DOM bridge, but still validate it before it
+    # reaches an attribute.  A malformed/partial theme resets to the known
+    # defaults in studio.js instead of leaking arbitrary CSS values.
+    candidate = theme or {}
+    if set(candidate) != set(_STUDIO_THEME_KEYS) or any(
+        not isinstance(candidate.get(key), str)
+        or not re.fullmatch(r"#[0-9a-fA-F]{6}", candidate[key])
+        for key in _STUDIO_THEME_KEYS
+    ):
+        candidate = {}
+    payload = json.dumps(candidate, separators=(",", ":"))
+    return (
+        f'<div class="pc-theme-payload" hidden data-palette-card-theme="{html.escape(payload, quote=True)}" '
+        'aria-hidden="true"></div>'
+    )
 
 
 def _mode_badge(predictor: Predictor | None) -> str:
@@ -218,6 +466,7 @@ def build_app(checkpoint_path: str | Path | None = None, output_dir: str | Path 
     def callback(image, object_choice, title, message):
         try:
             gallery, files, status = analyze_image(image, object_choice, title, message, predictor, mode_message, resolved_output_dir, palette_predictor, palette_mode_message, max_pixels, retention_hours)
+            theme = _studio_theme_from_status(status)
             return (
                 gallery,
                 files,
@@ -225,6 +474,7 @@ def build_app(checkpoint_path: str | Path | None = None, output_dir: str | Path 
                 status_html(status),
                 gr.update(visible=True),
                 gr.update(visible=True),
+                _theme_payload_html(theme) if theme else gr.update(),
             )
         except Exception as exc:
             # Keep UI failures readable instead of exposing a Python traceback.
@@ -236,6 +486,7 @@ def build_app(checkpoint_path: str | Path | None = None, output_dir: str | Path 
                 status_html(status),
                 gr.update(visible=True),
                 gr.update(visible=True),
+                gr.update(),
             )
 
     def image_state(image):
@@ -249,6 +500,7 @@ def build_app(checkpoint_path: str | Path | None = None, output_dir: str | Path 
             [],
             _color_story_html(""),
             "",
+            _theme_payload_html(),
         )
 
     def reset_form():
@@ -265,6 +517,7 @@ def build_app(checkpoint_path: str | Path | None = None, output_dir: str | Path 
             gr.update(visible=False),
             gr.update(value="Generate 3 cards", interactive=False),
             gr.update(visible=True),
+            _theme_payload_html(),
         )
 
     def mark_loading():
@@ -352,6 +605,11 @@ def build_app(checkpoint_path: str | Path | None = None, output_dir: str | Path 
                 gr.Markdown("Observed in the photo, then translated into design roles.", elem_classes=["pc-story-helper"])
                 story_html = gr.HTML(_color_story_html(""), elem_id="pc-story-swatches")
                 status = gr.HTML("", elem_id="pc-status", elem_classes=["pc-status"])
+            theme_payload = gr.HTML(
+                _theme_payload_html(),
+                elem_id="pc-theme-payload",
+                elem_classes=["pc-theme-payload"],
+            )
 
         gr.HTML(
             f"<footer id='pc-privacy' class='pc-footer'><p><strong>Local by default.</strong> {html.escape(_PRIVACY_COPY)}</p>"
@@ -361,7 +619,7 @@ def build_app(checkpoint_path: str | Path | None = None, output_dir: str | Path 
         image.change(
             image_state,
             inputs=image,
-            outputs=[generate, empty_state, result_panel, start_over, gallery, downloads, story_html, status],
+            outputs=[generate, empty_state, result_panel, start_over, gallery, downloads, story_html, status, theme_payload],
             show_progress="hidden",
         )
         # The transient loading label is part of the same event chain as the
@@ -369,12 +627,12 @@ def build_app(checkpoint_path: str | Path | None = None, output_dir: str | Path 
         generate.click(mark_loading, outputs=generate, show_progress="hidden").then(
             callback,
             inputs=[image, object_choice, title, message],
-            outputs=[gallery, downloads, story_html, status, result_panel, start_over],
+            outputs=[gallery, downloads, story_html, status, result_panel, start_over, theme_payload],
             show_progress="minimal",
         ).then(mark_ready, outputs=generate, show_progress="hidden")
         start_over.click(
             reset_form,
-            outputs=[image, object_choice, title, message, gallery, downloads, story_html, status, result_panel, start_over, generate, empty_state],
+            outputs=[image, object_choice, title, message, gallery, downloads, story_html, status, result_panel, start_over, generate, empty_state, theme_payload],
             show_progress="hidden",
         )
     demo.queue(max_size=queue_size, default_concurrency_limit=concurrency)
@@ -385,6 +643,7 @@ def build_app(checkpoint_path: str | Path | None = None, output_dir: str | Path 
     demo._palette_card_object_model_ready = predictor is not None
     demo._palette_card_palette_model_ready = palette_predictor is not None
     demo._palette_card_css = _load_studio_css()
+    demo._palette_card_js = _load_studio_js()
     return demo
 
 
@@ -399,7 +658,7 @@ def main() -> int:
     args = parser.parse_args()
     output_dir = resolve_output_dir(args.output_dir)
     demo = build_app(args.checkpoint, output_dir, args.palette_checkpoint)
-    demo.launch(share=args.share, allowed_paths=[str(output_dir)], css=_load_studio_css())
+    demo.launch(share=args.share, allowed_paths=[str(output_dir)], css=_load_studio_css(), js=_load_studio_js())
     return 0
 
 
