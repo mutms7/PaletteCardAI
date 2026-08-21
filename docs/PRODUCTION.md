@@ -67,6 +67,13 @@ horizontal scaling.
 
 ## Vercel
 
+The current `palettecardai.vercel.app` production site is intentionally a
+static frontend preview configured by `vercel.json`. It does not install
+Python, load checkpoints, upload images, or invoke the ASGI app. Images selected
+in that preview stay within the browser tab.
+
+The notes below describe the optional future AI-backed deployment.
+
 `vercel_app.py` exposes the hardened FastAPI/Gradio application as a Vercel
 Python Function. New Vercel projects use Fluid Compute and can place large AI
 dependencies on the large-function path. The deployment keeps generated cards

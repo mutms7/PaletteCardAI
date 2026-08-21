@@ -9,6 +9,11 @@ result useful instead of stopping at a notebook and an accuracy number.
 
 🌐 **Live app:** [palettecardai.vercel.app](https://palettecardai.vercel.app/)
 
+The current public deployment is a **frontend-only preview**: it loads
+instantly, keeps selected images inside the browser tab, and does not load or
+call either trained model. The Python/PyTorch project remains here for local
+training and for a future inference backend.
+
 The important design choice is that the app does **not** paint the whole card
 with the exact colors it finds. A photo full of bright red, blue, and green
 balloons usually needs a quiet neutral background, pale related shapes, a
@@ -144,10 +149,12 @@ tests/                         unit, integration, and end-to-end tests
 
 ## Production and deployment
 
-Vercel loads `vercel_app.py` as one FastAPI function. Generated cards use the
-function's temporary filesystem, so they are short-lived by design. The app
-also includes `/healthz` and `/readyz`, model hash reporting, upload limits,
-bounded inference concurrency, trusted-host checks, and security headers.
+Vercel currently serves the static files in `frontend/`; there is no Python
+installation, AI bundle, image upload, or function cold start in the public
+preview. `vercel.json` deliberately selects the static folder and adds basic
+browser security headers. The trained application still runs locally through
+`python app.py`, and `vercel_app.py` remains available as a future FastAPI
+entry point when an inference backend is wanted again.
 
 ```bash
 vercel
@@ -161,10 +168,10 @@ docker build -t palettecard-ai .
 docker run --rm -p 7860:7860 --env-file .env palettecard-ai
 ```
 
-Read [the production runbook](docs/PRODUCTION.md) before treating this as a
-public or commercial service. Vercel can run the prototype, but durable file
-storage, dataset clearance, a larger evaluation set, monitoring, abuse
-controls, and a published privacy notice are still real launch requirements.
+Read [the production runbook](docs/PRODUCTION.md) before reconnecting the AI or
+treating this as a public or commercial service. Durable file storage, dataset
+clearance, a larger evaluation set, monitoring, abuse controls, and a published
+privacy notice are still real launch requirements.
 
 ## Tech stack
 
