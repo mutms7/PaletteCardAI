@@ -1,4 +1,4 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52">
-  <path d="M26 3C39 3 49 13 49 26S39 49 26 49 3 39 3 26 13 3 26 3Z" fill="#ffd84d" stroke="#292531" stroke-width="3"/>
+  <path d="M26 3C38 2 48 10 49 23c2 14-6 25-19 26C16 51 5 43 4 30 2 16 10 5 26 3Z" fill="#ffd84d" stroke="#292531" stroke-width="3"/>
   <path d="M26 10c2 10 6 14 16 16-10 2-14 6-16 16-2-10-6-14-16-16 10-2 14-6 16-16Z" fill="#292531"/>
 </svg>

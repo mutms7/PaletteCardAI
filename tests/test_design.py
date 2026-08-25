@@ -118,5 +118,5 @@ def test_cards_use_design_palette_and_remain_distinct():
     photo = rgb_balloon_photo()
     cards = render_card_set(photo, extract_palette(photo), "Balloons", "A colorful message.", "balloon")
     assert len(cards) == 3
-    assert all(card.size == (1200, 1600) for card in cards)
+    assert all(card.size == (1275, 1650) for card in cards)
     assert len({card.tobytes() for card in cards}) == 3

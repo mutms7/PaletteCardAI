@@ -1,8 +1,8 @@
 const DEFAULT_PALETTE = ["#f7e6d4", "#e64955", "#d6a343", "#73a9dc", "#79bd72"];
 const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 const MAX_FILE_SIZE = 4 * 1024 * 1024;
-const ARTBOARD_WIDTH = 900;
-const ARTBOARD_HEIGHT = 1200;
+const ARTBOARD_WIDTH = 850;
+const ARTBOARD_HEIGHT = 1100;
 
 const qs = (selector, parent = document) => parent.querySelector(selector);
 const qsa = (selector, parent = document) => [...parent.querySelectorAll(selector)];
@@ -277,7 +277,14 @@ function showGeneratedCards(payload) {
     image.className = "generated-card-image";
     image.src = generatedCards[index].data_url;
     image.alt = `Generated ${index + 1} card cover`;
-    preview.append(image);
+    const copy = document.createElement("div");
+    copy.className = "card-preview-copy";
+    const headline = document.createElement("strong");
+    headline.textContent = titleInput.value.trim();
+    const note = document.createElement("span");
+    note.textContent = messageInput.value.trim();
+    copy.append(headline, note);
+    preview.append(image, copy);
   });
   qsa(".download-card").forEach((link, index) => {
     link.hidden = false;
@@ -337,6 +344,14 @@ checkModels();
 
 const artboard = qs("#artboard");
 const displayContext = artboard.getContext("2d");
+const strokeCanvas = document.createElement("canvas");
+const strokeContext = strokeCanvas.getContext("2d");
+const strokePreviewCanvas = document.createElement("canvas");
+const strokePreviewContext = strokePreviewCanvas.getContext("2d");
+[strokeCanvas, strokePreviewCanvas].forEach((canvas) => {
+  canvas.width = ARTBOARD_WIDTH;
+  canvas.height = ARTBOARD_HEIGHT;
+});
 const layersList = qs("#layers-list");
 const brushSize = qs("#brush-size");
 const brushOpacity = qs("#brush-opacity");
@@ -365,6 +380,9 @@ let draggingText = false;
 let textDragOffset = null;
 let textEditBefore = null;
 let previousPoint = null;
+let strokeTargetLayerId = null;
+let strokeOpacity = 1;
+let strokeMode = "brush";
 let undoStack = [];
 let redoStack = [];
 
@@ -375,7 +393,7 @@ function makeLayer(name, locked = false, type = locked ? "base" : "paint") {
   return { id: `layer-${++layerCounter}`, name, canvas, visible: true, locked, type };
 }
 
-function makeTextLayer(name = "Words", x = ARTBOARD_WIDTH / 2, y = 260) {
+function makeTextLayer(name = "Words", x = ARTBOARD_WIDTH / 2, y = 180) {
   return {
     ...makeLayer(name, false, "text"),
     text: "Your words here",
@@ -506,8 +524,30 @@ function renderComposite(showSelection = true) {
   displayContext.clearRect(0, 0, ARTBOARD_WIDTH, ARTBOARD_HEIGHT);
   layers.forEach((layer) => {
     if (!layer.visible) return;
-    if (layer.type === "text") drawTextLayer(displayContext, layer);
-    else displayContext.drawImage(layer.canvas, 0, 0);
+    if (layer.type === "text") {
+      drawTextLayer(displayContext, layer);
+      return;
+    }
+    if (drawing && layer.id === strokeTargetLayerId && strokeMode === "eraser") {
+      strokePreviewContext.clearRect(0, 0, ARTBOARD_WIDTH, ARTBOARD_HEIGHT);
+      strokePreviewContext.globalAlpha = 1;
+      strokePreviewContext.globalCompositeOperation = "source-over";
+      strokePreviewContext.drawImage(layer.canvas, 0, 0);
+      strokePreviewContext.globalAlpha = strokeOpacity;
+      strokePreviewContext.globalCompositeOperation = "destination-out";
+      strokePreviewContext.drawImage(strokeCanvas, 0, 0);
+      strokePreviewContext.globalAlpha = 1;
+      strokePreviewContext.globalCompositeOperation = "source-over";
+      displayContext.drawImage(strokePreviewCanvas, 0, 0);
+      return;
+    }
+    displayContext.drawImage(layer.canvas, 0, 0);
+    if (drawing && layer.id === strokeTargetLayerId && strokeMode === "brush") {
+      displayContext.save();
+      displayContext.globalAlpha = strokeOpacity;
+      displayContext.drawImage(strokeCanvas, 0, 0);
+      displayContext.restore();
+    }
   });
   const layer = selectedLayer();
   if (showSelection && currentTool === "text" && layer?.type === "text" && layer.visible) drawTextSelection(displayContext, layer);
@@ -565,7 +605,7 @@ function addPaintLayer(name = `Paint ${layers.filter((layer) => layer.type === "
   renderComposite();
 }
 
-function addTextLayer(x = ARTBOARD_WIDTH / 2, y = 260) {
+function addTextLayer(x = ARTBOARD_WIDTH / 2, y = 180) {
   const count = layers.filter((layer) => layer.type === "text").length + 1;
   const layer = makeTextLayer(`Words ${count}`, x, y);
   layers.push(layer);
@@ -661,7 +701,7 @@ function updateToolButtons() {
     button.classList.toggle("is-active", active);
     button.setAttribute("aria-pressed", String(active));
   });
-  artboard.style.cursor = currentTool === "text" ? "move" : currentTool === "eraser" ? "cell" : "crosshair";
+  artboard.style.cursor = cartoonCursor(currentTool, brushColor);
   updateTextControls();
 }
 qsa(".tool-button").forEach((button) => button.addEventListener("click", () => {
@@ -680,9 +720,24 @@ brushOpacity.addEventListener("input", () => { opacityOutput.textContent = `${br
 
 function setBrushColor(color) {
   brushColor = color.toUpperCase();
+  toolbox.style.setProperty("--brush-color", brushColor);
   colorDot.style.setProperty("--brush-color", brushColor);
   colorLabel.textContent = brushColor;
   qs("#custom-color").value = brushColor;
+  if (currentTool === "brush") artboard.style.cursor = cartoonCursor("brush", brushColor);
+}
+
+function cartoonCursor(tool, color) {
+  const ink = "#292531";
+  const safeColor = /^#[0-9a-f]{6}$/i.test(color) ? color : "#e64955";
+  const art = tool === "eraser"
+    ? `<path d="M9 30 27 8c2-3 5-3 7-1l6 5c2 2 2 5 0 7L22 41H12l-5-5c-2-2-1-4 2-6Z" fill="#ff9f92" stroke="${ink}" stroke-width="3"/><path d="m17 22 11 10M22 41h16" fill="none" stroke="${ink}" stroke-width="3" stroke-linecap="round"/>`
+    : tool === "text"
+      ? `<path d="M8 10V5h32v5M24 6v34M16 40h16" fill="none" stroke="${ink}" stroke-width="4" stroke-linecap="round"/><path d="M7 4h34" stroke="#ffd84d" stroke-width="3"/>`
+      : `<path d="M33 4c3-2 8 3 7 7-2 5-12 16-18 23l-9-8C19 18 29 7 33 4Z" fill="${safeColor}" stroke="${ink}" stroke-width="3"/><path d="m13 26 9 8-5 6-10-8Z" fill="#f2bd63" stroke="${ink}" stroke-width="3"/><path d="M7 32c-5 3-6 8-5 13 6 0 11-2 15-6Z" fill="${safeColor}" stroke="${ink}" stroke-width="3"/>`;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="46" height="46" viewBox="0 0 46 46">${art}</svg>`;
+  const hotspot = tool === "text" ? "23 22" : "5 42";
+  return `url("data:image/svg+xml,${encodeURIComponent(svg)}") ${hotspot}, auto`;
 }
 
 function mixedPaint(base, x, y) {
@@ -781,23 +836,46 @@ function recordHistory(item) {
   updateHistoryButtons();
 }
 
-function drawSegment(from, to) {
-  const layer = selectedLayer();
-  if (!layer || layer.locked || layer.type !== "paint") return;
-  const context = layer.canvas.getContext("2d");
-  context.save();
-  context.lineCap = "round";
-  context.lineJoin = "round";
-  context.lineWidth = Number(brushSize.value);
-  context.globalAlpha = Number(brushOpacity.value) / 100;
-  context.globalCompositeOperation = currentTool === "eraser" ? "destination-out" : "source-over";
-  context.strokeStyle = brushColor;
-  context.beginPath();
-  context.moveTo(from.x, from.y);
-  context.lineTo(to.x, to.y);
-  context.stroke();
-  context.restore();
+function beginStroke(layer, point) {
+  strokeContext.clearRect(0, 0, ARTBOARD_WIDTH, ARTBOARD_HEIGHT);
+  strokeTargetLayerId = layer.id;
+  strokeOpacity = Number(brushOpacity.value) / 100;
+  strokeMode = currentTool;
+  strokeContext.fillStyle = strokeMode === "eraser" ? "#000000" : brushColor;
+  strokeContext.beginPath();
+  strokeContext.arc(point.x, point.y, Number(brushSize.value) / 2, 0, Math.PI * 2);
+  strokeContext.fill();
+  previousPoint = point;
   renderComposite();
+}
+
+function extendStroke(next) {
+  if (!previousPoint) return;
+  strokeContext.save();
+  strokeContext.lineCap = "round";
+  strokeContext.lineJoin = "round";
+  strokeContext.lineWidth = Number(brushSize.value);
+  strokeContext.strokeStyle = strokeMode === "eraser" ? "#000000" : brushColor;
+  strokeContext.beginPath();
+  strokeContext.moveTo(previousPoint.x, previousPoint.y);
+  strokeContext.lineTo(next.x, next.y);
+  strokeContext.stroke();
+  strokeContext.restore();
+  previousPoint = next;
+}
+
+function commitStroke() {
+  const layer = layers.find((candidate) => candidate.id === strokeTargetLayerId);
+  if (layer?.type === "paint") {
+    const context = layer.canvas.getContext("2d");
+    context.save();
+    context.globalAlpha = strokeOpacity;
+    context.globalCompositeOperation = strokeMode === "eraser" ? "destination-out" : "source-over";
+    context.drawImage(strokeCanvas, 0, 0);
+    context.restore();
+  }
+  strokeContext.clearRect(0, 0, ARTBOARD_WIDTH, ARTBOARD_HEIGHT);
+  strokeTargetLayerId = null;
 }
 
 artboard.addEventListener("pointerdown", (event) => {
@@ -825,8 +903,7 @@ artboard.addEventListener("pointerdown", (event) => {
   artboard.setPointerCapture(event.pointerId);
   recordHistory(snapshot(layer));
   drawing = true;
-  previousPoint = point;
-  drawSegment(previousPoint, { x: previousPoint.x + .1, y: previousPoint.y + .1 });
+  beginStroke(layer, point);
 });
 artboard.addEventListener("pointermove", (event) => {
   if (draggingText) {
@@ -842,17 +919,20 @@ artboard.addEventListener("pointermove", (event) => {
   }
   if (!drawing) return;
   event.preventDefault();
-  const next = pointerPoint(event);
-  drawSegment(previousPoint, next);
-  previousPoint = next;
+  const coalescedEvents = event.getCoalescedEvents?.();
+  const pointerEvents = coalescedEvents?.length ? coalescedEvents : [event];
+  pointerEvents.forEach((pointerEvent) => extendStroke(pointerPoint(pointerEvent)));
+  renderComposite();
 });
 function endDrawing(event) {
   if (!drawing && !draggingText) return;
+  if (drawing) commitStroke();
   drawing = false;
   draggingText = false;
   textDragOffset = null;
   previousPoint = null;
   if (artboard.hasPointerCapture(event.pointerId)) artboard.releasePointerCapture(event.pointerId);
+  renderComposite();
 }
 artboard.addEventListener("pointerup", endDrawing);
 artboard.addEventListener("pointercancel", endDrawing);
@@ -962,8 +1042,21 @@ async function loadCardIntoEditor(dataUrl, label) {
   });
   base.canvas.getContext("2d").drawImage(image, 0, 0, ARTBOARD_WIDTH, ARTBOARD_HEIGHT);
   resetEditor(base);
+  const starterHeadline = titleInput.value.trim();
+  const starterNote = messageInput.value.trim();
+  if (starterHeadline) {
+    const headline = addTextLayer(ARTBOARD_WIDTH / 2, 135);
+    Object.assign(headline, { name: "Starter headline", text: starterHeadline, fontSize: 78, width: 700, color: "#292531" });
+  }
+  if (starterNote) {
+    const note = addTextLayer(ARTBOARD_WIDTH / 2, ARTBOARD_HEIGHT - 100);
+    Object.assign(note, { name: "Starter note", text: starterNote, fontSize: 40, width: 690, color: "#292531" });
+  }
+  renderLayers();
+  updateTextControls();
+  renderComposite();
   window.location.hash = "editor";
-  showToast("Your cover is on the bottom layer. Time to paint.");
+  showToast("Your headline and note are editable layers. Change them, move them, or delete them.");
 }
 
 qsa(".edit-card").forEach((button) => button.addEventListener("click", () => {

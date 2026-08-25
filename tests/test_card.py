@@ -11,7 +11,8 @@ def test_card_set_is_high_resolution_and_distinct(tmp_path: Path):
     palette = extract_palette(source)
     cards = render_card_set(source, palette, "Hello", "A message from a test.", "heart")
     assert len(cards) == 3
-    assert all(card.size == (1200, 1600) for card in cards)
+    assert all(card.size == (1275, 1650) for card in cards)
+    assert all(card.width / card.height == 1275 / 1650 for card in cards)
     assert all(card.height > card.width for card in cards)
     assert len({card.tobytes() for card in cards}) == 3
     paths = save_cards(cards, tmp_path)
@@ -32,16 +33,30 @@ def test_card_wraps_unbroken_editable_text():
 
 def test_max_length_text_layout_has_bounded_non_overlapping_blocks():
     for variant in range(3):
-        layout = calculate_text_layout((1200, 1600), variant, "T" * 80, "M" * 240)
+        layout = calculate_text_layout((1275, 1650), variant, "T" * 80, "M" * 240)
         assert layout.title_box[3] <= layout.message_box[1]
         assert layout.title_box[2] - layout.title_box[0] > 0
         assert layout.message_box[2] - layout.message_box[0] > 0
-        assert layout.title_box[3] < 390  # the source photo begins below the title
-        assert layout.message_box[1] >= 1300  # the source photo ends above the message
-        assert layout.message_box[3] < 1580
+        assert layout.title_box[3] < 370  # the source photo begins below the title
+        assert layout.message_box[1] >= 1430  # the source photo ends above the message
+        assert layout.message_box[3] < 1640
 
 
 def test_each_portrait_cover_keeps_the_unchanged_photo_at_its_center():
     source = Image.new("RGB", (24, 24), (220, 60, 100))
     cards = render_card_set(source, extract_palette(source), "Hello", "A message.", "heart")
     assert all(card.getpixel((card.width // 2, card.height // 2)) == (220, 60, 100) for card in cards)
+
+
+def test_editor_card_art_has_no_flattened_copy_or_object_label():
+    source = Image.new("RGB", (24, 24), (220, 60, 100))
+    palette = extract_palette(source)
+    first = render_card_set(source, palette, "First headline", "First note", "flower", render_text=False)
+    second = render_card_set(source, palette, "Different headline", "Different note", "ring", render_text=False)
+    assert all(left.tobytes() == right.tobytes() for left, right in zip(first, second))
+
+
+def test_card_art_keeps_square_outer_corners():
+    source = Image.new("RGB", (24, 24), (220, 60, 100))
+    cards = render_card_set(source, extract_palette(source), "Hello", "A message.", "heart", render_text=False)
+    assert all(card.getpixel((0, 0)) == card.getpixel((8, 8)) for card in cards)

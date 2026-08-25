@@ -162,8 +162,8 @@ def create_production_app(settings: ProductionSettings | None = None):
     async def generate(
         file: UploadFile = File(...),
         object_choice: str = Form("Auto"),
-        title: str = Form("A little color for you"),
-        message: str = Form("Made from the colors in your photo."),
+        title: str = Form("For someone wonderful"),
+        message: str = Form("A tiny note, made just for you."),
     ):
         if not object_ready or not palette_ready:
             raise HTTPException(status_code=503, detail="Both AI models must be ready before cards can be generated.")
@@ -187,8 +187,8 @@ def create_production_app(settings: ProductionSettings | None = None):
                 lambda: analyze_image(
                     image,
                     normalized_choice,
-                    title.strip() or "A little color for you",
-                    message.strip() or "Made from the colors in your photo.",
+                    title.strip() or "For someone wonderful",
+                    message.strip() or "A tiny note, made just for you.",
                     predictor,
                     mode_message,
                     configured.output_dir,
@@ -196,6 +196,7 @@ def create_production_app(settings: ProductionSettings | None = None):
                     palette_mode_message,
                     configured.max_pixels,
                     configured.retention_hours,
+                    True,
                 )
             )
             cards = await run_in_threadpool(_encode_web_cards, gallery)

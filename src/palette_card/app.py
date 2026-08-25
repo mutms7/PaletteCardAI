@@ -27,8 +27,8 @@ from .design import oklch_to_srgb, srgb_to_oklch
 
 
 _ASSET_DIR = Path(__file__).with_name("assets")
-_DEFAULT_TITLE = "A little color for you"
-_DEFAULT_MESSAGE = "Made from the colors in your photo."
+_DEFAULT_TITLE = "For someone wonderful"
+_DEFAULT_MESSAGE = "A tiny note, made just for you."
 _EMPTY_STATE_COPY = "Upload a photo to begin."
 _PRIVACY_COPY = "Runs on this computer by default. Generated PNGs stay in the configured local output folder until you remove them."
 _DEFAULT_STUDIO_THEME = {
@@ -397,7 +397,7 @@ def resolve_output_dir(output_dir: str | Path | None = None) -> Path:
     return destination
 
 
-def analyze_image(image: Image.Image, object_choice: str = "Auto", title: str = _DEFAULT_TITLE, message: str = _DEFAULT_MESSAGE, predictor: Predictor | None = None, mode_message: str | None = None, output_dir: str | Path | None = None, palette_predictor: PalettePredictor | None = None, palette_mode_message: str | None = None, max_pixels: int = 16_000_000, retention_hours: int | None = None):
+def analyze_image(image: Image.Image, object_choice: str = "Auto", title: str = _DEFAULT_TITLE, message: str = _DEFAULT_MESSAGE, predictor: Predictor | None = None, mode_message: str | None = None, output_dir: str | Path | None = None, palette_predictor: PalettePredictor | None = None, palette_mode_message: str | None = None, max_pixels: int = 16_000_000, retention_hours: int | None = None, editable_text: bool = False):
     """Run recognition (or explicit manual selection), palette, and card generation."""
 
     image = validate_upload_image(image, max_pixels=max_pixels)
@@ -413,7 +413,7 @@ def analyze_image(image: Image.Image, object_choice: str = "Auto", title: str = 
     else:
         label = "unclassified object"
         recognition = "Object: not classified (Demo Mode; no confidence claimed). Choose a label manually for a named card."
-    cards = render_card_set(image, colors, title, message, label, design_palette=roles)
+    cards = render_card_set(image, colors, title, message, label, design_palette=roles, render_text=not editable_text)
     destination = Path(output_dir or Paths().cards)
     if retention_hours is not None:
         cleanup_generated_cards(destination, retention_hours)

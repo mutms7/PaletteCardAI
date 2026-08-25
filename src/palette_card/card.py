@@ -93,7 +93,7 @@ class TextLayout:
 
 
 def _card_fonts(size: tuple[int, int]):
-    scale = min(size[0] / 1200, size[1] / 1600)
+    scale = min(size[0] / 1275, size[1] / 1650)
     return _font(max(28, int(88 * scale))), _font(max(20, int(48 * scale))), _font(max(16, int(30 * scale)))
 
 
@@ -104,12 +104,12 @@ def calculate_text_layout(size: tuple[int, int], variant: int, title: str, messa
         raise ValueError("card size is too small for a readable export")
     draw = ImageDraw.Draw(Image.new("RGB", size, "white"))
     title_font, message_font, _ = _card_fonts(size)
-    title = (title or "A little color for you")[:80]
-    message = (message or "Made from the colors in your photo.")[:240]
-    scale_x, scale_y = size[0] / 1200, size[1] / 1600
-    max_width = int(940 * scale_x)
-    title_y = int((110, 105, 120)[variant % 3] * scale_y)
-    message_y = int((1320, 1315, 1305)[variant % 3] * scale_y)
+    title = (title or "For someone wonderful")[:80]
+    message = (message or "A tiny note, made just for you.")[:240]
+    scale_x, scale_y = size[0] / 1275, size[1] / 1650
+    max_width = int(1020 * scale_x)
+    title_y = int((105, 100, 110)[variant % 3] * scale_y)
+    message_y = int((1435, 1435, 1435)[variant % 3] * scale_y)
     title_lines = _bounded_lines(draw, title, title_font, max_width, 2)
     message_lines = _bounded_lines(draw, message, message_font, max_width, 3)
     title_height = _block_height(draw, title_lines, title_font, int(8 * scale_y))
@@ -202,6 +202,28 @@ def _petal(draw: ImageDraw.ImageDraw, center, radius, fill, outline, angle=0):
     draw._image.paste(petal, (int(center[0] - petal.width / 2), int(center[1] - petal.height / 2)), petal)
 
 
+def _folk_flower(draw: ImageDraw.ImageDraw, center, radius, petal_fill, middle_fill, outline):
+    """Draw a bold, flat flower inspired by painted folk motifs."""
+
+    x, y = center
+    for angle in range(0, 360, 60):
+        px = x + math.cos(math.radians(angle)) * radius * .72
+        py = y + math.sin(math.radians(angle)) * radius * .72
+        draw.ellipse((px - radius * .42, py - radius * .58, px + radius * .42, py + radius * .58), fill=petal_fill, outline=outline, width=3)
+    draw.ellipse((x - radius * .34, y - radius * .34, x + radius * .34, y + radius * .34), fill=middle_fill, outline=outline, width=3)
+
+
+def _leaf(draw: ImageDraw.ImageDraw, center, radius, fill, outline, turn=0):
+    """Draw a simple paper-cut leaf."""
+
+    leaf = Image.new("RGBA", (radius * 4, radius * 3), (0, 0, 0, 0))
+    leaf_draw = ImageDraw.Draw(leaf)
+    leaf_draw.ellipse((radius // 2, radius // 2, radius * 7 // 2, radius * 5 // 2), fill=fill, outline=outline, width=3)
+    leaf_draw.line((radius, radius * 3 // 2, radius * 3, radius * 3 // 2), fill=outline, width=3)
+    leaf = leaf.rotate(turn, resample=Image.Resampling.BICUBIC, expand=True)
+    draw._image.paste(leaf, (int(center[0] - leaf.width / 2), int(center[1] - leaf.height / 2)), leaf)
+
+
 def render_card(
     image: Image.Image | None,
     colors: Sequence[Color],
@@ -209,8 +231,9 @@ def render_card(
     message: str,
     object_label: str,
     variant: int = 0,
-    size: tuple[int, int] = (1200, 1600),
+    size: tuple[int, int] = (1275, 1650),
     design_palette=None,
+    render_text: bool = True,
 ) -> Image.Image:
     """Render one portrait cover with the source photo at its center."""
 
@@ -226,53 +249,51 @@ def render_card(
     draw = ImageDraw.Draw(canvas)
     width, height = size
     title_font, message_font, small_font = _card_fonts(size)
-    title = (title or "A little color for you")[:80]
-    message = (message or "Made from the colors in your photo.")[:240]
-    label = (object_label or "object").replace("_", " ").upper()
+    title = (title or "For someone wonderful")[:80]
+    message = (message or "A tiny note, made just for you.")[:240]
+    del object_label
     layout = calculate_text_layout(size, variant, title, message)
-    scale_x, scale_y = width / 1200, height / 1600
+    scale_x, scale_y = width / 1275, height / 1650
+    line_width = max(4, width // 250)
+
+    def card_copy():
+        if not render_text:
+            return
+        _centered_text(draw, layout.title_box, layout.title_lines, title_font, surface_ink)
+        _centered_text(draw, layout.message_box, layout.message_lines, message_font, surface_ink)
 
     if variant % 3 == 0:
-        # A pressed-flower keepsake with a roomy photo and little paper petals.
-        draw.rounded_rectangle((48, 46, width - 48, height - 46), radius=72, fill=surface, outline=ink, width=max(4, width // 180))
-        draw.rounded_rectangle((72, 70, width - 72, height - 70), radius=58, outline=tints[2], width=max(3, width // 300))
-        photo_box = (210 * scale_x, 385 * scale_y, 990 * scale_x, 1205 * scale_y)
-        for x, y, color, turn in ((145, 410, primary, -28), (1060, 450, secondary, 32), (145, 1090, secondary, 18), (1050, 1110, primary, -24)):
-            stem_end = (x + (-35 if x > width / 2 else 35), y + 95)
-            draw.arc((min(x, stem_end[0]) - 30, y - 5, max(x, stem_end[0]) + 30, stem_end[1] + 35), 165 if x < width / 2 else 15, 300 if x < width / 2 else 150, fill=ink, width=5)
-            _petal(draw, (x, y), 25, color, ink, turn)
-            _petal(draw, (x + (-25 if x > width / 2 else 25), y + 36), 18, tints[(turn // 12) % len(tints)], ink, turn + 48)
-        _photo_window(canvas, image, photo_box, surface, ink, radius=int(66 * scale_x))
-        for x, y, color in ((118, 290, accent), (1080, 290, secondary), (102, 1260, primary), (1090, 1260, accent)):
-            _spark(draw, (int(x * scale_x), int(y * scale_y)), int(20 * scale_x), color, width=max(4, width // 260))
-        draw.text((width // 2, 58 * scale_y), f"A LITTLE {label} KEEPSAKE", fill=accent, font=small_font, anchor="ma")
-        _centered_text(draw, layout.title_box, layout.title_lines, title_font, surface_ink)
-        _centered_text(draw, layout.message_box, layout.message_lines, message_font, surface_ink)
+        # Folk garden: one symmetrical botanical motif and a calm central photo.
+        draw.rectangle((0, 0, width - 1, height - 1), fill=surface)
+        draw.rectangle((30, 30, width - 31, height - 31), outline=ink, width=line_width)
+        draw.rectangle((48, 48, width - 49, height - 49), outline=tints[2], width=max(2, line_width - 1))
+        _photo_window(canvas, image, (245 * scale_x, 370 * scale_y, 1030 * scale_x, 1360 * scale_y), surface, ink, radius=int(10 * scale_x))
+        for x, y, petals, middle in ((140, 420, primary, accent), (1135, 420, secondary, primary), (140, 1275, secondary, accent), (1135, 1275, primary, secondary)):
+            _folk_flower(draw, (int(x * scale_x), int(y * scale_y)), int(42 * scale_x), petals, middle, ink)
+        for x, y, turn, color in ((125, 545, -35, tints[0]), (1150, 550, 35, tints[1]), (128, 1150, 30, tints[1]), (1148, 1150, -30, tints[0])):
+            _leaf(draw, (int(x * scale_x), int(y * scale_y)), int(22 * scale_x), color, ink, turn)
+        _heart(draw, (width // 2, int(332 * scale_y)), int(22 * scale_x), accent, ink)
+        card_copy()
     elif variant % 3 == 1:
-        # A layered scrapbook with torn paper, stitches, tape, and stickers.
-        draw.rounded_rectangle((54, 52, width - 54, height - 52), radius=40, fill=surface, outline=ink, width=max(4, width // 200))
-        back_one = ((82, 344), (1115, 310), (1130, 1210), (70, 1250))
-        back_two = ((120, 370), (1070, 350), (1095, 1235), (100, 1205))
-        draw.polygon(back_one, fill=tints[0], outline=ink)
-        draw.polygon(back_two, fill=tints[1], outline=ink)
-        _dashed_line(draw, (100, 365), (1095, 330), accent, width=5, dash=20, gap=15)
-        _dashed_line(draw, (105, 1230), (1100, 1200), accent, width=5, dash=20, gap=15)
-        _photo_window(canvas, image, (185 * scale_x, 395 * scale_y, 1015 * scale_x, 1195 * scale_y), surface, ink, radius=int(24 * scale_x))
-        tape = (255, 218, 92)
-        draw.polygon(((155, 365), (360, 345), (368, 418), (164, 432)), fill=tape, outline=ink)
-        draw.polygon(((830, 1165), (1040, 1148), (1035, 1220), (838, 1234)), fill=tape, outline=ink)
-        _star(draw, (100, 555), 40, primary, ink)
-        _star(draw, (1090, 930), 34, secondary, ink)
-        _heart(draw, (1085, 560), 27, accent, ink)
-        _heart(draw, (112, 980), 22, primary, ink)
-        draw.text((width // 2, 58 * scale_y), f"FOUND COLORS · {label}", fill=accent, font=small_font, anchor="ma")
-        _centered_text(draw, layout.title_box, layout.title_lines, title_font, surface_ink)
-        _centered_text(draw, layout.message_box, layout.message_lines, message_font, surface_ink)
+        # Cut-paper party: broad shapes, a strong arch, and restrained confetti.
+        draw.rectangle((0, 0, width - 1, height - 1), fill=surface)
+        draw.rectangle((28, 28, width - 29, height - 29), outline=ink, width=line_width)
+        draw.polygon(((70, 355), (width - 70, 320), (width - 95, 1390), (95, 1360)), fill=tints[0], outline=ink)
+        draw.polygon(((115, 385), (width - 95, 365), (width - 120, 1360), (105, 1390)), fill=tints[1], outline=ink)
+        draw.arc((205, 255, width - 205, 900), 180, 360, fill=primary, width=int(70 * scale_x))
+        _photo_window(canvas, image, (220 * scale_x, 405 * scale_y, 1055 * scale_x, 1350 * scale_y), surface, ink, radius=int(8 * scale_x))
+        for x, y, color, turn in ((95, 500, accent, -14), (1160, 555, secondary, 16), (105, 1050, primary, 12), (1160, 1125, accent, -12)):
+            draw.rounded_rectangle((x - 25, y - 52, x + 25, y + 52), radius=8, fill=color, outline=ink, width=3)
+        _star(draw, (115, 735), 33, primary, ink)
+        _heart(draw, (1150, 820), 24, accent, ink)
+        _spark(draw, (width // 2, int(330 * scale_y)), int(18 * scale_x), secondary, width=5)
+        card_copy()
     else:
-        # A cheerful postage card with a perforated photo frame and ink marks.
-        draw.rounded_rectangle((42, 40, width - 42, height - 40), radius=86, fill=surface, outline=ink, width=max(4, width // 200))
-        draw.rounded_rectangle((70, 68, width - 70, height - 68), radius=68, outline=tints[2], width=max(3, width // 300))
-        frame = (160, 365, 1040, 1225)
+        # Playful postcard: graphic stamp edges and a few loose cancellation marks.
+        draw.rectangle((0, 0, width - 1, height - 1), fill=surface)
+        draw.rectangle((28, 28, width - 29, height - 29), outline=ink, width=line_width)
+        draw.rectangle((48, 48, width - 49, height - 49), outline=tints[2], width=max(2, line_width - 1))
+        frame = (170, 360, 1105, 1380)
         draw.rectangle(frame, fill=primary, outline=ink, width=4)
         hole_radius = 12
         for x in range(frame[0] + 24, frame[2], 42):
@@ -281,21 +302,13 @@ def render_card(
         for y in range(frame[1] + 24, frame[3], 42):
             draw.ellipse((frame[0] - hole_radius, y - hole_radius, frame[0] + hole_radius, y + hole_radius), fill=surface)
             draw.ellipse((frame[2] - hole_radius, y - hole_radius, frame[2] + hole_radius, y + hole_radius), fill=surface)
-        _photo_window(canvas, image, (205 * scale_x, 410 * scale_y, 995 * scale_x, 1180 * scale_y), bg, ink, radius=int(26 * scale_x))
-        draw.text((width // 2, 58 * scale_y), f"POSTED WITH LOVE · {label}", fill=accent, font=small_font, anchor="ma")
-        _centered_text(draw, layout.title_box, layout.title_lines, title_font, surface_ink)
-        _centered_text(draw, layout.message_box, layout.message_lines, message_font, surface_ink)
-        swatch_y = int(1510 * scale_y)
-        swatch_radius = max(12, int(20 * scale_x))
-        source = tuple(roles.source[:5])
-        start = width // 2 - int((len(source) - 1) * 58 * scale_x)
-        for index, color in enumerate(source):
-            x = start + int(index * 116 * scale_x)
-            draw.ellipse((x - swatch_radius, swatch_y - swatch_radius, x + swatch_radius, swatch_y + swatch_radius), fill=_rgb(color), outline=ink, width=3)
-        draw.arc((70, 245, 320, 410), 188, 340, fill=primary, width=10)
-        draw.arc((width - 320, 250, width - 70, 415), 20, 172, fill=secondary, width=10)
-        draw.arc((70, 260, 330, 430), 192, 338, fill=accent, width=4)
-        _star(draw, (1075, 1260), 34, secondary, ink)
+        _photo_window(canvas, image, (220 * scale_x, 410 * scale_y, 1055 * scale_x, 1330 * scale_y), bg, ink, radius=int(8 * scale_x))
+        draw.arc((55, 245, 345, 430), 188, 342, fill=primary, width=10)
+        draw.arc((70, 267, 360, 450), 192, 338, fill=accent, width=4)
+        draw.arc((width - 360, 255, width - 55, 445), 18, 170, fill=secondary, width=10)
+        _heart(draw, (int(1115 * scale_x), int(315 * scale_y)), int(28 * scale_x), accent, ink)
+        _star(draw, (int(135 * scale_x), int(1410 * scale_y)), int(28 * scale_x), secondary, ink)
+        card_copy()
     return canvas
 
 
@@ -305,12 +318,13 @@ def render_card_set(
     title: str,
     message: str,
     object_label: str,
-    size: tuple[int, int] = (1200, 1600),
+    size: tuple[int, int] = (1275, 1650),
     design_palette=None,
+    render_text: bool = True,
 ) -> list[Image.Image]:
     """Return the three portrait covers shown in the application."""
 
-    return [render_card(image, colors, title, message, object_label, variant=i, size=size, design_palette=design_palette) for i in range(3)]
+    return [render_card(image, colors, title, message, object_label, variant=i, size=size, design_palette=design_palette, render_text=render_text) for i in range(3)]
 
 
 def save_cards(cards: Sequence[Image.Image], directory: str | Path, stem: str = "palette-card") -> list[Path]:

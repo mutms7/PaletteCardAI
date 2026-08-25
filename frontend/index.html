@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="I turn one favorite photo into three colorful card covers, then give you a tiny art studio to make one your own." />
     <title>PaletteCard AI | Make a color story</title>
-    <link rel="icon" href="/frontend/favicon.svg?v=4" type="image/svg+xml" />
-    <link rel="stylesheet" href="/frontend/styles.css?v=4" />
-    <script src="/frontend/app.js?v=4" defer></script>
+    <link rel="icon" href="/frontend/favicon.svg?v=6" type="image/svg+xml" />
+    <link rel="stylesheet" href="/frontend/styles.css?v=6" />
+    <script src="/frontend/app.js?v=6" defer></script>
   </head>
   <body>
     <a class="skip-link" href="#main-content">Skip to the page</a>
@@ -15,7 +15,7 @@
     <header class="site-header">
       <a class="wordmark route-link" href="#create" aria-label="PaletteCard AI home">
         <svg class="logo-mark" viewBox="0 0 52 52" aria-hidden="true">
-          <path class="logo-sun" d="M26 3C39 3 49 13 49 26S39 49 26 49 3 39 3 26 13 3 26 3Z" />
+          <path class="logo-sun" d="M26 3C38 2 48 10 49 23c2 14-6 25-19 26C16 51 5 43 4 30 2 16 10 5 26 3Z" />
           <path class="logo-star" d="M26 10c2 10 6 14 16 16-10 2-14 6-16 16-2-10-6-14-16-16 10-2 14-6 16-16Z" />
         </svg>
         <span>PaletteCard <em>AI</em></span>
@@ -96,8 +96,8 @@
             </fieldset>
 
             <div class="copy-fields">
-              <label><span>Cover title</span><input id="card-title" type="text" maxlength="64" value="A little color for you" /></label>
-              <label><span>Small message</span><textarea id="card-message" maxlength="160" rows="3">Made from the colors in your photo.</textarea></label>
+              <label><span>Starter headline</span><input id="card-title" type="text" maxlength="64" value="For someone wonderful" /><small>This becomes a text layer you can change or delete.</small></label>
+              <label><span>Starter note</span><textarea id="card-message" maxlength="160" rows="3">A tiny note, made just for you.</textarea><small>This becomes its own text layer too.</small></label>
             </div>
 
             <button class="paper-button primary-action" id="generate-button" type="submit" disabled>
@@ -127,9 +127,9 @@
           <div class="results-heading"><div><p class="eyebrow">Three starting points</p><h2 id="results-title">Pick a cover to paint on</h2></div><button class="text-button" id="start-over" type="button">Use another photo</button></div>
           <div class="result-status" role="status" aria-live="polite"><strong id="result-status-title">Your covers are ready.</strong><span id="result-status-copy">Pick one, then open the editor.</span></div>
           <div class="card-grid" id="card-grid">
-            <article class="direction"><div class="card-preview"><span class="card-placeholder">Pressed petal cover</span></div><div class="direction-copy"><strong>Pressed petal keepsake</strong><p>Little paper petals and stems make the photo feel saved in a sketchbook.</p></div><div class="card-actions"><button class="paper-button edit-card" type="button" data-card="0">Paint this one</button><a class="download-card" hidden>Download</a></div></article>
-            <article class="direction"><div class="card-preview"><span class="card-placeholder">Scrapbook cover</span></div><div class="direction-copy"><strong>Happy scrapbook</strong><p>Torn paper, stitches, tape, and stickers give this one plenty of bounce.</p></div><div class="card-actions"><button class="paper-button edit-card" type="button" data-card="1">Paint this one</button><a class="download-card" hidden>Download</a></div></article>
-            <article class="direction"><div class="card-preview"><span class="card-placeholder">Postage cover</span></div><div class="direction-copy"><strong>Postage window</strong><p>A perforated stamp frame turns the photo into a tiny note sent with love.</p></div><div class="card-actions"><button class="paper-button edit-card" type="button" data-card="2">Paint this one</button><a class="download-card" hidden>Download</a></div></article>
+            <article class="direction"><div class="card-preview"><span class="card-placeholder">Folk garden cover</span></div><div class="direction-copy"><strong>Folk garden</strong><p>Bold little flowers and leaves grow around the photo like a painted keepsake.</p></div><div class="card-actions"><button class="paper-button edit-card" type="button" data-card="0">Customize this one</button><a class="download-card" hidden>Download art</a></div></article>
+            <article class="direction"><div class="card-preview"><span class="card-placeholder">Cut-paper cover</span></div><div class="direction-copy"><strong>Cut-paper party</strong><p>Layered arches, confetti, and paper shapes make this one feel celebratory.</p></div><div class="card-actions"><button class="paper-button edit-card" type="button" data-card="1">Customize this one</button><a class="download-card" hidden>Download art</a></div></article>
+            <article class="direction"><div class="card-preview"><span class="card-placeholder">Postcard cover</span></div><div class="direction-copy"><strong>Playful postcard</strong><p>A graphic stamp frame and hand-drawn marks make the photo feel mailed with love.</p></div><div class="card-actions"><button class="paper-button edit-card" type="button" data-card="2">Customize this one</button><a class="download-card" hidden>Download art</a></div></article>
           </div>
         </section>
       </section>
@@ -156,7 +156,7 @@
           <aside class="toolbox paper-panel" aria-label="Drawing tools">
             <h2>My tools</h2>
             <div class="tool-grid" role="toolbar" aria-label="Paint tools">
-              <button class="tool-button is-active" type="button" data-tool="brush" aria-pressed="true"><svg viewBox="0 0 64 64" aria-hidden="true"><path d="M14 52c9 2 15-3 16-12M25 43 47 12c3-4 9 1 6 5L31 47M14 52c-4-8 2-13 11-9 6 3 4 11-2 14-6 3-13 0-9-5Z"/></svg><span>Brush</span></button>
+              <button class="tool-button is-active" type="button" data-tool="brush" aria-pressed="true"><svg class="brush-tool-icon" viewBox="0 0 64 64" aria-hidden="true"><path class="brush-handle-fill" d="M48 6c3-1 8 4 8 7 0 4-17 24-24 31l-10-9C29 26 44 8 48 6Z"/><path class="brush-ferrule" d="m22 34 11 10-6 7-12-10Z"/><path class="brush-bristle-fill" d="M15 40c-7 4-9 10-7 17 7 1 14-1 19-7Z"/><path class="brush-icon-lines" d="M48 6c3-1 8 4 8 7 0 4-17 24-24 31l-10-9C29 26 44 8 48 6ZM22 34l11 10-6 7-12-10m0-1c-7 4-9 10-7 17 7 1 14-1 19-7"/></svg><span>Brush</span></button>
               <button class="tool-button" type="button" data-tool="eraser" aria-pressed="false"><svg viewBox="0 0 64 64" aria-hidden="true"><path d="m13 39 23-26c3-3 7-3 10 0l7 7c3 3 3 7 0 10L31 53H18L12 47c-2-2-2-6 1-8ZM28 52l-13-13M32 52h22"/></svg><span>Eraser</span></button>
               <button class="tool-button" type="button" data-tool="text" aria-pressed="false"><svg viewBox="0 0 64 64" aria-hidden="true"><path d="M12 16V9h40v7M32 10v44M23 54h18"/><path d="M18 9h28"/></svg><span>Text</span></button>
             </div>
@@ -173,8 +173,8 @@
               <label class="slider-row"><span>Turn <output id="text-rotation-output">0°</output></span><input id="text-rotation" type="range" min="-180" max="180" value="0" /></label>
               <div class="text-detail-grid">
                 <label><span>Text color</span><input id="text-color" type="color" value="#292531" /></label>
-                <label><span>Left and right</span><input id="text-x" type="number" min="0" max="900" step="5" value="450" /></label>
-                <label><span>Up and down</span><input id="text-y" type="number" min="0" max="1200" step="5" value="260" /></label>
+                <label><span>Left and right</span><input id="text-x" type="number" min="0" max="850" step="5" value="425" /></label>
+                <label><span>Up and down</span><input id="text-y" type="number" min="0" max="1100" step="5" value="180" /></label>
               </div>
               <fieldset class="text-align-controls"><legend>Line up the words</legend><div><button type="button" data-align="left" aria-pressed="false">Left</button><button type="button" data-align="center" aria-pressed="true">Center</button><button type="button" data-align="right" aria-pressed="false">Right</button></div></fieldset>
               <p class="text-drag-note">Drag the words on the card, or use the position boxes above.</p>
@@ -183,7 +183,7 @@
 
           <section class="canvas-desk" aria-label="Card canvas">
             <div class="canvas-note" id="canvas-note">Draw with a mouse, finger, or pen.</div>
-            <div class="canvas-wrap"><canvas id="artboard" width="900" height="1200" aria-label="Editable portrait card canvas"></canvas><span class="canvas-tape tape-left" aria-hidden="true"></span><span class="canvas-tape tape-right" aria-hidden="true"></span></div>
+            <div class="canvas-wrap"><canvas id="artboard" width="850" height="1100" aria-label="Editable A2 portrait card canvas"></canvas><span class="canvas-tape tape-left" aria-hidden="true"></span><span class="canvas-tape tape-right" aria-hidden="true"></span></div>
             <div class="paint-tray" aria-label="Paint palette">
               <div class="paint-tray-copy"><h2>Mix paint here</h2><p>Press inside a color and circle around. The brush changes a little as you move.</p></div>
               <div class="paint-wells" id="paint-wells"></div>

@@ -29,7 +29,7 @@ def test_health_and_fail_closed_readiness(tmp_path: Path):
     )
     with TestClient(create_production_app(settings)) as client:
         root = client.get("/")
-        styles = client.get("/frontend/styles.css?v=4")
+        styles = client.get("/frontend/styles.css?v=6")
         health = client.get("/healthz")
         ready = client.get("/readyz")
         generate = client.post(
@@ -46,6 +46,8 @@ def test_health_and_fail_closed_readiness(tmp_path: Path):
     assert 'value="Patrick Hand"' in root.text
     assert 'data-view="privacy"' in root.text
     assert 'id="artboard"' in root.text
+    assert 'value="For someone wonderful"' in root.text
+    assert 'width="850" height="1100"' in root.text
     assert styles.status_code == 200
     assert 'font-family: "Schoolbell"' in styles.text
     assert 'font-family: "Fredoka"' in styles.text

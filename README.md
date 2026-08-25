@@ -3,8 +3,8 @@
 > **Turn one photo into a color-smart greeting card.**
 
 PaletteCard AI recognizes a flower, heart, ring, cake, or balloon, studies the
-photo's colors, and turns them into three portrait card covers. You can pick one,
-paint on it with layers, and export the finished cover as a PNG. I built it
+photo's colors, and turns them into three standard A2 portrait card covers. You
+can pick one, paint on it with layers, and export the finished cover as a PNG. I built it
 because I wanted to learn what “training an AI” actually means, then make the
 result useful instead of stopping at a notebook and an accuracy number.
 
@@ -55,12 +55,16 @@ The redesign includes:
 - real Create, How it works, Card editor, and Privacy screens;
 - a child-drawn visual map that explains both models from pixels upward;
 - visible status for both trained models before a photo is submitted;
-- three distinct portrait covers with the unchanged source photo in the center:
-  a pressed-petal keepsake, a layered scrapbook, and a postage window;
+- three distinct A2 portrait covers with square card corners and the unchanged
+  source photo in the center: a folk garden, a cut-paper party, and a playful postcard;
 - a pointer-based editor that works with a mouse, pen, or finger;
 - brush, eraser, and text tools with undo, redo, and PNG export;
+- connected brush strokes that keep one even opacity during a drawing gesture;
+- color-filled brush icons and matching cartoon cursors for each editor tool;
 - editable text layers with four fonts, wrapping, color, size, width, alignment,
   rotation, position fields, and direct dragging on the card;
+- starter headline and note fields that arrive as removable editor layers instead
+  of being flattened into the generated art;
 - a layer panel with visibility, ordering, duplication, renaming, and deletion;
 - five model colors plus black, white, custom colors, and a water cup;
 - paint wells that shift the brush color as you circle inside them;
@@ -84,9 +88,9 @@ from design colors so the image stays the focus.
 4. **Design a palette.** A second neural network proposes background,
    secondary, and accent roles. An OKLCH/Oklab color-theory layer then keeps
    large areas calm, preserves contrast, and checks WCAG readability.
-5. **Make the covers.** Three portrait layouts place the unchanged photo at the
-   center. The local app saves PNGs, while the serverless app returns optimized
-   JPEG downloads to stay within its response limit.
+5. **Make the covers.** Three A2 portrait layouts place the unchanged photo at
+   the center. The local app saves PNGs, while the serverless app returns
+   optimized JPEG art layers to stay within its response limit.
 6. **Paint one yourself.** The browser editor puts the chosen cover on a locked
    base layer. New paint and words stay on separate layers, and export flattens
    only the visible stack into one PNG.
