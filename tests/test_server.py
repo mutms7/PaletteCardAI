@@ -29,6 +29,7 @@ def test_health_and_fail_closed_readiness(tmp_path: Path):
     )
     with TestClient(create_production_app(settings)) as client:
         root = client.get("/")
+        styles = client.get("/frontend/styles.css?v=4")
         health = client.get("/healthz")
         ready = client.get("/readyz")
         generate = client.post(
@@ -37,6 +38,12 @@ def test_health_and_fail_closed_readiness(tmp_path: Path):
         )
     assert root.status_code == 200
     assert "PaletteCard AI" in root.text
+    assert 'data-view="how"' in root.text
+    assert 'data-view="editor"' in root.text
+    assert 'data-view="privacy"' in root.text
+    assert 'id="artboard"' in root.text
+    assert styles.status_code == 200
+    assert 'font-family: "Schoolbell"' in styles.text
     assert health.status_code == 200
     assert health.headers["x-content-type-options"] == "nosniff"
     assert ready.status_code == 503

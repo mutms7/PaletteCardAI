@@ -83,6 +83,11 @@ output to 2.8 MB so the base64 JSON response remains below Vercel's 4.5 MB
 request/response limit. `PALETTECARD_MOUNT_GRADIO=false` avoids constructing the
 unused Gradio tree during Vercel cold starts.
 
+The public editor is client-side. It loads one returned portrait cover into a
+locked canvas layer, keeps paint on separate browser layers, and exports a
+flattened PNG locally. Drawing, palette mixing, layer changes, and export do not
+create another API request.
+
 Deploy from the repository root:
 
     vercel
@@ -112,8 +117,9 @@ wildcard unless the network boundary independently prevents spoofing.
 
 ## Privacy and retention
 
-Publish a privacy notice explaining that users upload images for inference and
-that generated cards are downloadable. The default output retention is 24
+The app includes a plain-language privacy screen explaining when a photo is
+sent and what the prototype deliberately removes. A public or commercial launch
+still needs an approved legal privacy notice. The default output retention is 24
 hours and is configured through PALETTECARD_RETENTION_HOURS. Cleanup removes
 only files matching palette-card-*.png in the configured output directory.
 Confirm host-level backups and logs do not silently extend the stated

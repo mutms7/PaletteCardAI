@@ -3,231 +3,200 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="PaletteCard AI recognizes one photo, learns its colors, and creates three downloadable greeting cards." />
-    <title>PaletteCard AI — Draw a color story</title>
-    <link rel="icon" href="/frontend/favicon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="/frontend/styles.css?v=3" />
-    <script src="/frontend/app.js?v=3" defer></script>
+    <meta name="description" content="I turn one favorite photo into three colorful card covers, then give you a tiny art studio to make one your own." />
+    <title>PaletteCard AI | Make a color story</title>
+    <link rel="icon" href="/frontend/favicon.svg?v=4" type="image/svg+xml" />
+    <link rel="stylesheet" href="/frontend/styles.css?v=4" />
+    <script src="/frontend/app.js?v=4" defer></script>
   </head>
   <body>
-    <a class="skip-link" href="#studio">Skip to the studio</a>
+    <a class="skip-link" href="#main-content">Skip to the page</a>
 
     <header class="site-header">
-      <a class="wordmark" href="#top" aria-label="PaletteCard AI home">
-        <span class="wordmark-mark" aria-hidden="true">✦</span>
+      <a class="wordmark route-link" href="#create" aria-label="PaletteCard AI home">
+        <svg class="logo-mark" viewBox="0 0 52 52" aria-hidden="true">
+          <path class="logo-sun" d="M26 3C39 3 49 13 49 26S39 49 26 49 3 39 3 26 13 3 26 3Z" />
+          <path class="logo-star" d="M26 10c2 10 6 14 16 16-10 2-14 6-16 16-2-10-6-14-16-16 10-2 14-6 16-16Z" />
+        </svg>
         <span>PaletteCard <em>AI</em></span>
       </a>
-      <nav aria-label="Main navigation"><a href="#studio">Create</a><a href="#how-it-works">How it works</a><a href="#privacy">Privacy</a></nav>
-      <div class="header-meta">
-        <span class="status-badge" id="model-badge"><span aria-hidden="true"></span> Checking AI…</span>
-      </div>
+
+      <nav class="main-nav" aria-label="Main navigation">
+        <a class="route-link" href="#create" data-route="create">Create</a>
+        <a class="route-link" href="#how" data-route="how">How it works</a>
+        <a class="route-link" href="#editor" data-route="editor">Card editor</a>
+        <a class="route-link" href="#privacy" data-route="privacy">Privacy</a>
+      </nav>
+
+      <span class="status-badge" id="model-badge"><i aria-hidden="true"></i><span>Checking AI</span></span>
     </header>
 
-    <main id="top">
-      <section class="hero" aria-labelledby="hero-title">
-        <div class="hero-copy-block">
-          <p class="eyebrow">A small color studio</p>
-          <h1 id="hero-title">Your photo has a <span>color story.</span><br />Let's draw it out!</h1>
-          <a class="hero-action" href="#studio">Make a card ↓</a>
-        </div>
-        <div class="hero-copy hero-art">
-          <div class="paper-doodle" aria-hidden="true"><span>one photo</span><b>→</b><span>three cards!</span></div>
-          <div class="privacy-line" id="privacy">
-            <span aria-hidden="true">●</span>
-            <p><strong>Two tiny AI models, one working prototype.</strong> Your photo is sent securely for inference, used to make your cards, and is not deliberately retained.</p>
+    <main id="main-content">
+      <section class="app-view create-view" data-view="create">
+        <section class="hero" aria-labelledby="hero-title">
+          <div class="hero-copy-block">
+            <p class="eyebrow">My little color studio</p>
+            <h1 id="hero-title">Your photo has a <span>color story.</span><br />Let’s draw it out!</h1>
+            <a class="paper-button hero-action" href="#studio">Make a card <span aria-hidden="true">↓</span></a>
           </div>
-        </div>
-      </section>
-
-      <section class="process-trail" id="how-it-works" aria-label="How PaletteCard works">
-        <div><span>1</span><strong>Pick a photo</strong><small>One clear object works best</small></div><i></i>
-        <div><span>2</span><strong>Find its colors</strong><small>Five observed swatches</small></div><i></i>
-        <div><span>3</span><strong>Meet your cards</strong><small>Three playful directions</small></div>
-      </section>
-
-      <section class="studio" id="studio" aria-label="Card design studio">
-        <form class="control-panel" id="studio-form">
-          <div class="panel-heading">
-            <div>
-              <p class="step-label">Step one</p>
-              <h2>Choose your picture</h2>
+          <div class="hero-art" aria-label="One photo becomes three cards">
+            <div class="paper-doodle" aria-hidden="true">
+              <span>one photo</span>
+              <svg viewBox="0 0 120 42"><path d="M7 18c27 5 57 2 98 7M91 12l16 13-17 10" /></svg>
+              <span>three covers!</span>
+              <i class="tape"></i>
             </div>
-            <span class="local-label">AI-powered</span>
+            <a class="privacy-note route-link" href="#privacy">
+              <span aria-hidden="true">●</span>
+              <p>I use your photo to make the cards, then I let the temporary copy go. Read how privacy works.</p>
+            </a>
           </div>
+        </section>
 
-          <label class="dropzone" id="dropzone" for="photo-input" aria-describedby="upload-hint photo-error">
-            <input id="photo-input" type="file" accept="image/jpeg,image/png,image/webp" />
-            <span class="upload-empty" id="upload-empty">
-              <span class="upload-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24"><path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4" /></svg>
+        <section class="process-trail" aria-label="The three steps">
+          <div><span>1</span><strong>Pick a photo</strong><small>One clear object works best</small></div><i></i>
+          <div><span>2</span><strong>Meet three covers</strong><small>Your photo stays in the middle</small></div><i></i>
+          <div><span>3</span><strong>Paint your own</strong><small>Use layers, brushes, and your palette</small></div>
+        </section>
+
+        <section class="studio" id="studio" aria-label="Card maker">
+          <form class="paper-panel control-panel" id="studio-form">
+            <div class="panel-heading">
+              <div><p class="step-label">First, the photo</p><h2>What are we making?</h2></div>
+              <span class="sticky-label">AI is helping</span>
+            </div>
+
+            <label class="dropzone" id="dropzone" for="photo-input" aria-describedby="upload-hint photo-error">
+              <input id="photo-input" type="file" accept="image/jpeg,image/png,image/webp" />
+              <span class="upload-empty" id="upload-empty">
+                <svg class="doodle-icon" viewBox="0 0 64 64" aria-hidden="true"><path d="M11 49V21c0-5 4-9 9-9h24c5 0 9 4 9 9v28M22 35l8-8 7 7 5-5 11 11M7 49c15-2 34 2 50 0"/><circle cx="42" cy="23" r="4"/></svg>
+                <strong>Drop one favorite photo here</strong>
+                <span id="upload-hint">JPG, PNG, or WebP, up to 4 MB</span>
+                <span class="mini-button">Choose a photo</span>
               </span>
-              <strong>Drop a photo of one centered object</strong>
-              <span id="upload-hint">Flower, heart, ring, cake, or balloon · JPG, PNG, or WebP</span>
-              <span class="browse-button">Browse photo</span>
-            </span>
-            <span class="upload-preview" id="upload-preview" hidden>
-              <img id="source-image" alt="Your selected source photo" />
-              <span class="preview-actions">
-                <span><strong id="file-name">Selected photo</strong><small>Click to replace</small></span>
-                <button class="icon-button" id="remove-photo" type="button" aria-label="Remove selected photo">×</button>
+              <span class="upload-preview" id="upload-preview" hidden>
+                <img id="source-image" alt="Your selected photo" />
+                <span class="preview-actions"><span><strong id="file-name">Selected photo</strong><small>Tap to replace it</small></span><button class="round-button" id="remove-photo" type="button" aria-label="Remove selected photo">×</button></span>
               </span>
-            </span>
-          </label>
-          <p class="field-error" id="photo-error" role="alert"></p>
-
-          <fieldset class="object-fieldset" aria-describedby="mode-helper">
-            <legend>How should we identify it?</legend>
-            <p id="mode-helper">Auto uses the trained classifier. You can override it when needed.</p>
-            <p class="mode-status" id="mode-status"><strong>Checking AI…</strong></p>
-            <div class="object-options">
-              <label><input type="radio" name="object" value="auto" checked /><span>Auto</span></label>
-              <label><input type="radio" name="object" value="flower" /><span>Flower</span></label>
-              <label><input type="radio" name="object" value="heart" /><span>Heart</span></label>
-              <label><input type="radio" name="object" value="ring" /><span>Ring</span></label>
-              <label><input type="radio" name="object" value="cake" /><span>Cake</span></label>
-              <label><input type="radio" name="object" value="balloon" /><span>Balloon</span></label>
-            </div>
-          </fieldset>
-
-          <div class="copy-fields">
-            <label>
-              <span>Card title</span>
-              <input id="card-title" type="text" maxlength="64" value="A little color for you" />
             </label>
-            <label>
-              <span>Card message</span>
-              <textarea id="card-message" maxlength="160" rows="3">Made from the colors in your photo.</textarea>
-            </label>
-          </div>
+            <p class="field-error" id="photo-error" role="alert"></p>
 
-          <button class="primary-action" id="generate-button" type="submit" disabled aria-describedby="action-status">
-            <span id="generate-label">Draw my 3 cards</span>
-            <span aria-hidden="true">↗</span>
-          </button>
-          <p class="action-note" id="action-status" aria-live="polite">Add a photo to begin. AI processing starts only when you make the cards.</p>
-        </form>
+            <fieldset class="object-fieldset" aria-describedby="mode-helper">
+              <legend>What should I look for?</legend>
+              <p id="mode-helper">Auto lets the small classifier choose. You can correct it here.</p>
+              <p class="mode-status" id="mode-status">I’m checking the models.</p>
+              <div class="object-options">
+                <label><input type="radio" name="object" value="auto" checked /><span>Auto</span></label>
+                <label><input type="radio" name="object" value="flower" /><span>Flower</span></label>
+                <label><input type="radio" name="object" value="heart" /><span>Heart</span></label>
+                <label><input type="radio" name="object" value="ring" /><span>Ring</span></label>
+                <label><input type="radio" name="object" value="cake" /><span>Cake</span></label>
+                <label><input type="radio" name="object" value="balloon" /><span>Balloon</span></label>
+              </div>
+            </fieldset>
 
-        <aside class="story-panel" aria-labelledby="story-title">
-          <div class="panel-heading">
-            <div>
-              <p class="step-label">Step two</p>
-              <h2 id="story-title">Watch the color magic</h2>
-              <p class="story-helper">Observed in the photo, then translated into design roles.</p>
+            <div class="copy-fields">
+              <label><span>Cover title</span><input id="card-title" type="text" maxlength="64" value="A little color for you" /></label>
+              <label><span>Small message</span><textarea id="card-message" maxlength="160" rows="3">Made from the colors in your photo.</textarea></label>
             </div>
-            <span class="story-count" id="story-count">0 / 5</span>
-          </div>
 
-          <div class="source-stage" id="source-stage">
-            <div class="source-placeholder">
-              <span aria-hidden="true">＋</span>
-              <p>Your photo becomes the visual anchor.</p>
+            <button class="paper-button primary-action" id="generate-button" type="submit" disabled>
+              <span id="generate-label">Make my 3 covers</span>
+              <span aria-hidden="true">↗</span>
+            </button>
+            <p class="action-note" id="action-status" aria-live="polite">Add a photo, then I can start.</p>
+          </form>
+
+          <aside class="paper-panel palette-panel" aria-labelledby="palette-title">
+            <div class="panel-heading">
+              <div><p class="step-label">Then, the colors</p><h2 id="palette-title">Here’s your palette</h2><p>The real model picks five colors from your photo.</p></div>
+              <span class="paint-count" id="story-count">0 / 5</span>
             </div>
-            <img id="story-image" alt="Source photo used for the frontend preview" hidden />
+            <div class="source-stage" id="source-stage"><div class="source-placeholder"><span>+</span><p>Your picture will sit right here.</p></div><img id="story-image" alt="Your selected photo" hidden /></div>
+            <div class="swatch-section"><span>Five colors I found</span><div class="swatches" id="swatches" aria-label="Colors found in your photo"></div></div>
+            <dl class="role-list">
+              <div><dt>Paper</dt><dd id="canvas-role">Warm white</dd></div>
+              <div><dt>Brightest paint</dt><dd id="accent-role">Waiting for a photo</dd></div>
+              <div><dt>The overall feel</dt><dd id="approach-role">Soft and simple</dd></div>
+            </dl>
+            <div class="tip-note"><span aria-hidden="true">✦</span><p>The editor always adds black, white, and a cup of water, so you aren’t stuck with only five colors.</p></div>
+          </aside>
+        </section>
+
+        <section class="results" id="results" hidden aria-labelledby="results-title">
+          <div class="results-heading"><div><p class="eyebrow">Three starting points</p><h2 id="results-title">Pick a cover to paint on</h2></div><button class="text-button" id="start-over" type="button">Use another photo</button></div>
+          <div class="result-status" role="status" aria-live="polite"><strong id="result-status-title">Your covers are ready.</strong><span id="result-status-copy">Pick one, then open the editor.</span></div>
+          <div class="card-grid" id="card-grid">
+            <article class="direction"><div class="card-preview"><span class="card-placeholder">Storybook cover</span></div><div class="direction-copy"><strong>Storybook garden</strong><p>Flowers and little sparks frame the photo.</p></div><div class="card-actions"><button class="paper-button edit-card" type="button" data-card="0">Paint this one</button><a class="download-card" hidden>Download</a></div></article>
+            <article class="direction"><div class="card-preview"><span class="card-placeholder">Scrapbook cover</span></div><div class="direction-copy"><strong>Taped scrapbook</strong><p>Paint dabs and paper tape make it feel collected.</p></div><div class="card-actions"><button class="paper-button edit-card" type="button" data-card="1">Paint this one</button><a class="download-card" hidden>Download</a></div></article>
+            <article class="direction"><div class="card-preview"><span class="card-placeholder">Window cover</span></div><div class="direction-copy"><strong>Quiet window</strong><p>A soft round frame keeps the photo personal.</p></div><div class="card-actions"><button class="paper-button edit-card" type="button" data-card="2">Paint this one</button><a class="download-card" hidden>Download</a></div></article>
           </div>
-
-          <div class="swatch-section">
-            <div class="section-label-row">
-              <span>Observed colors</span>
-              <span>Quick preview</span>
-            </div>
-            <div class="swatches" id="swatches" aria-label="Colors sampled from your photo">
-              <span style="--swatch: #e8e2da"></span>
-              <span style="--swatch: #d9d0c5"></span>
-              <span style="--swatch: #c9beb1"></span>
-              <span style="--swatch: #b8ab9b"></span>
-              <span style="--swatch: #a69684"></span>
-            </div>
-          </div>
-
-          <dl class="role-list">
-            <div><dt>Derived · Canvas</dt><dd id="canvas-role">Warm neutral</dd></div>
-            <div><dt>Derived · Accent</dt><dd id="accent-role">Waiting for photo</dd></div>
-            <div><dt>Derived · Approach</dt><dd id="approach-role">Quiet surfaces, restrained color</dd></div>
-          </dl>
-
-          <details class="color-inspection">
-            <summary>Inspect source and derived roles</summary>
-            <p><strong>Source colors</strong> are the five swatches observed from your image. <strong>Derived roles</strong> tune contrast and hierarchy for the preview.</p>
-          </details>
-
-          <div class="offline-note">
-            <span aria-hidden="true">◇</span>
-            <div><strong>AI runs when you create</strong><p>This quick preview responds instantly; the trained palette model makes the final color decisions.</p></div>
-          </div>
-        </aside>
+        </section>
       </section>
 
-      <section class="results" id="results" hidden aria-labelledby="results-title">
-        <div class="results-heading">
-          <div>
-            <p class="eyebrow">Step three</p>
-            <h2 id="results-title">Ta-da! Three card ideas</h2>
-          </div>
-          <div class="results-meta">
-            <span id="results-mode">AI-generated · ready to download</span>
-            <button id="start-over" type="button">Start over</button>
-          </div>
+      <section class="app-view how-view" data-view="how" hidden>
+        <div class="page-intro"><p class="eyebrow">How it works</p><h1>Two tiny helpers,<br />one color story.</h1><p>I think of the AI like two kids sharing one craft table. One names what it sees. The other sorts the paint.</p></div>
+        <div class="helper-stage"><img src="/frontend/art/ai-helpers.png?v=2" alt="Two crayon art helpers hold a crayon, paintbrush, and palette" /><span class="tape tape-one"></span><span class="tape tape-two"></span></div>
+        <div class="ai-map" aria-label="A bottom-up map of how the AI makes a card">
+          <article><span class="map-number">1</span><div class="map-doodle pixels" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><div><h2>First, there are pixels</h2><p>A photo is really a big grid of tiny color squares. Like a mosaic, each square means almost nothing alone.</p></div></article>
+          <svg class="map-arrow" viewBox="0 0 90 80" aria-hidden="true"><path d="M18 10c40 13 16 45 53 53M57 50l14 13-19 4" /></svg>
+          <article><span class="map-number blue">2</span><div class="map-doodle shapes" aria-hidden="true"><i></i><i></i><i></i></div><div><h2>Then, patterns show up</h2><p>The first helper has practiced with flowers, hearts, rings, cakes, and balloons. It combines little clues, then makes its best guess.</p></div></article>
+          <svg class="map-arrow flip" viewBox="0 0 90 80" aria-hidden="true"><path d="M18 10c40 13 16 45 53 53M57 50l14 13-19 4" /></svg>
+          <article><span class="map-number green">3</span><div class="map-doodle mini-palette" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div><div><h2>Next, the paint gets sorted</h2><p>The second helper looks at five colors and gives each one a job. One becomes paper, another becomes a bright detail, and the rest support them.</p></div></article>
+          <svg class="map-arrow" viewBox="0 0 90 80" aria-hidden="true"><path d="M18 10c40 13 16 45 53 53M57 50l14 13-19 4" /></svg>
+          <article><span class="map-number red">4</span><div class="map-doodle tiny-card" aria-hidden="true"><i></i></div><div><h2>Finally, I arrange the card</h2><p>The models don’t draw every line. They pass their answers to three handmade layouts, which place your unchanged photo in the middle.</p></div></article>
         </div>
+        <div class="plain-answer"><h2>So, is it really AI?</h2><p>Yes. Both model files are part of this prototype and run when you make cards. However, the card layouts and editor tools are regular code. That split keeps the result understandable and gives you the last word.</p><a class="paper-button route-link" href="#create">Try it with a photo</a></div>
+      </section>
 
-        <div class="result-status" id="result-status" role="status" aria-live="polite">
-          <strong id="result-status-title">Your three cards are ready.</strong>
-          <span id="result-status-copy">5 colors observed · 3 directions composed.</span>
-        </div>
+      <section class="app-view editor-view" data-view="editor" hidden>
+        <div class="editor-heading"><div><p class="eyebrow">Your card editor</p><h1>Make it feel like yours.</h1><p>Pick up a brush, mix paint in the tray, and draw on separate layers.</p></div><div class="editor-heading-actions"><button class="text-button" id="new-blank" type="button">New blank cover</button><button class="paper-button export-button" id="export-art" type="button">Export PNG <span aria-hidden="true">↓</span></button></div></div>
 
-        <div class="card-grid">
-          <article class="direction">
-            <div class="card-preview editorial-card">
-              <div class="editorial-copy">
-                <p class="card-object">FLOWER</p>
-                <h3 class="card-title-output">A little color for you</h3>
-                <p class="card-message-output">Made from the colors in your photo.</p>
-              </div>
-              <div class="editorial-image-wrap"><img class="card-source-image" alt="Your uploaded photo in an editorial card preview" /></div>
-              <span class="editorial-orb" aria-hidden="true"></span>
+        <div class="editor-shell">
+          <aside class="toolbox paper-panel" aria-label="Drawing tools">
+            <h2>My tools</h2>
+            <div class="tool-grid" role="toolbar" aria-label="Paint tools">
+              <button class="tool-button is-active" type="button" data-tool="brush" aria-pressed="true"><svg viewBox="0 0 64 64" aria-hidden="true"><path d="M14 52c9 2 15-3 16-12M25 43 47 12c3-4 9 1 6 5L31 47M14 52c-4-8 2-13 11-9 6 3 4 11-2 14-6 3-13 0-9-5Z"/></svg><span>Brush</span></button>
+              <button class="tool-button" type="button" data-tool="eraser" aria-pressed="false"><svg viewBox="0 0 64 64" aria-hidden="true"><path d="m13 39 23-26c3-3 7-3 10 0l7 7c3 3 3 7 0 10L31 53H18L12 47c-2-2-2-6 1-8ZM28 52l-13-13M32 52h22"/></svg><span>Eraser</span></button>
             </div>
-            <div class="direction-label"><span>01</span><div><strong>Editorial</strong><p>Photo-led, composed, generous.</p></div></div>
-            <a class="download-card" hidden>Download editorial card</a>
-          </article>
+            <label class="slider-row"><span>Brush size <output id="size-output">18</output></span><input id="brush-size" type="range" min="3" max="90" value="18" /></label>
+            <label class="slider-row"><span>Paint strength <output id="opacity-output">100%</output></span><input id="brush-opacity" type="range" min="10" max="100" value="100" /></label>
+            <div class="history-buttons"><button id="undo-action" type="button" disabled>↶ Undo</button><button id="redo-action" type="button" disabled>Redo ↷</button></div>
+            <div class="mix-readout"><span id="brush-color-dot"></span><div><small>Your brush has</small><output id="brush-color-label">#E64955</output></div></div>
+          </aside>
 
-          <article class="direction">
-            <div class="card-preview playful-card">
-              <p class="card-object">FLOWER</p>
-              <h3 class="card-title-output">A little color for you</h3>
-              <p class="card-message-output">Made from the colors in your photo.</p>
-              <span class="shape shape-one" aria-hidden="true"></span>
-              <span class="shape shape-two" aria-hidden="true"></span>
-              <span class="shape shape-three" aria-hidden="true"></span>
-              <div class="mini-swatches" aria-hidden="true"><span></span><span></span><span></span></div>
+          <section class="canvas-desk" aria-label="Card canvas">
+            <div class="canvas-note" id="canvas-note">Draw with a mouse, finger, or pen.</div>
+            <div class="canvas-wrap"><canvas id="artboard" width="900" height="1200" aria-label="Editable portrait card canvas"></canvas><span class="canvas-tape tape-left" aria-hidden="true"></span><span class="canvas-tape tape-right" aria-hidden="true"></span></div>
+            <div class="paint-tray" aria-label="Paint palette">
+              <div class="paint-tray-copy"><h2>Mix paint here</h2><p>Press inside a color and circle around. The brush changes a little as you move.</p></div>
+              <div class="paint-wells" id="paint-wells"></div>
+              <button class="water-well" id="water-well" type="button"><svg viewBox="0 0 64 64" aria-hidden="true"><path d="M32 7S15 28 15 40a17 17 0 0 0 34 0C49 28 32 7 32 7Z"/><path d="M24 42c2 5 6 7 11 7"/></svg><span>Water</span><small>lighten paint</small></button>
+              <label class="new-color-well"><span>New color</span><input id="custom-color" type="color" value="#e64955" /></label>
             </div>
-            <div class="direction-label"><span>02</span><div><strong>Playful</strong><p>Abstract, bright, still restrained.</p></div></div>
-            <a class="download-card" hidden>Download playful card</a>
-          </article>
+          </section>
 
-          <article class="direction">
-            <div class="card-preview minimal-card">
-              <div class="minimal-frame">
-                <p class="card-object">FLOWER</p>
-                <h3 class="card-title-output">A little color for you</h3>
-                <p class="card-message-output">Made from the colors in your photo.</p>
-                <div class="palette-bar" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>
-                <small>COLOR STORY / PALETTECARD</small>
-              </div>
-            </div>
-            <div class="direction-label"><span>03</span><div><strong>Minimal</strong><p>Framed, formal, palette-forward.</p></div></div>
-            <a class="download-card" hidden>Download minimal card</a>
-          </article>
+          <aside class="layers-panel paper-panel" aria-label="Layers">
+            <div class="layers-heading"><div><h2>Layers</h2><p>Top layers cover the ones below.</p></div><button class="round-button" id="add-layer" type="button" aria-label="Add paint layer">+</button></div>
+            <div class="layers-list" id="layers-list"></div>
+            <div class="layer-actions"><button id="move-layer-up" type="button">Move up</button><button id="move-layer-down" type="button">Move down</button><button id="duplicate-layer" type="button">Copy</button><button id="rename-layer" type="button">Rename</button><button id="delete-layer" type="button">Delete</button></div>
+            <div class="layer-tip"><span aria-hidden="true">☝</span><p>Tap a layer before drawing. Hide the little eye to compare ideas.</p></div>
+          </aside>
         </div>
+      </section>
 
-        <div class="results-note">
-          <p><strong>Prototype boundary.</strong> These cards were generated by the committed classifier and palette model. Outputs are compressed as high-quality JPEGs to stay within serverless response limits.</p>
+      <section class="app-view privacy-view" data-view="privacy" hidden>
+        <div class="page-intro privacy-intro"><p class="eyebrow">Privacy</p><h1>Your photo is yours.</h1><p>I only need it long enough to make your cards.</p></div>
+        <div class="privacy-cards">
+          <article><svg viewBox="0 0 80 80" aria-hidden="true"><path d="M18 34h44v35H18zM27 34V23c0-18 26-18 26 0v11"/><circle cx="40" cy="50" r="4"/><path d="M40 54v8"/></svg><h2>What gets sent</h2><p>When you press “Make my 3 covers,” the selected photo and your card words go to this app’s server. Nothing is sent while you’re only previewing it.</p></article>
+          <article><svg viewBox="0 0 80 80" aria-hidden="true"><path d="M13 21h54M25 21l4-9h22l4 9M20 21l3 47h34l3-47M32 32v24M48 32v24"/></svg><h2>What I keep</h2><p>The server makes temporary card files, returns the result, and removes those files. The editor stays in your browser until you leave or reload.</p></article>
+          <article><svg viewBox="0 0 80 80" aria-hidden="true"><path d="M40 10 65 20v18c0 16-10 26-25 33C25 64 15 54 15 38V20l25-10Z"/><path d="m28 40 8 8 17-19"/></svg><h2>What I don’t do</h2><p>I don’t use your upload to retrain the models. I don’t add it to the repository, and I don’t deliberately build a photo library from it.</p></article>
         </div>
+        <div class="privacy-bottom"><h2>One honest limit</h2><p>This is a working prototype, not a private photo vault. I’d still avoid uploading anything sensitive, just like you would with any small web demo.</p><a class="paper-button route-link" href="#create">Back to the card maker</a></div>
       </section>
     </main>
 
-    <footer>
-      <span>PaletteCard AI</span>
-      <p>One photo in. A considered color story out.</p>
-      <a href="https://github.com/mutms7/PaletteCardAI">View the training project ↗</a>
-    </footer>
+    <footer><a class="wordmark route-link" href="#create"><span>PaletteCard AI</span></a><p>One photo in. Your own handmade card out.</p><a href="https://github.com/mutms7/PaletteCardAI">See the project on GitHub ↗</a></footer>
+    <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
   </body>
 </html>

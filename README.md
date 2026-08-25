@@ -3,7 +3,8 @@
 > **Turn one photo into a color-smart greeting card.**
 
 PaletteCard AI recognizes a flower, heart, ring, cake, or balloon, studies the
-photo's colors, and turns them into three downloadable card designs. I built it
+photo's colors, and turns them into three portrait card covers. You can pick one,
+paint on it with layers, and export the finished cover as a PNG. I built it
 because I wanted to learn what “training an AI” actually means, then make the
 result useful instead of stopping at a notebook and an accuracy number.
 
@@ -12,8 +13,10 @@ result useful instead of stopping at a notebook and an accuracy number.
 The public Vercel deployment runs the committed object classifier and learned
 palette model through a FastAPI endpoint. Upload a photo, leave recognition on
 Auto or correct it manually, generate three real card renders, and download all
-three from the browser. The response carries the generated cards inline so it
-does not depend on temporary files surviving across serverless instances.
+three from the browser. The response carries the generated cards inline, so it
+does not depend on temporary files surviving across serverless instances. The
+card editor runs in the browser and exports a flattened PNG without another
+server request.
 
 ## Model integration status
 
@@ -38,19 +41,25 @@ The app exposes the same distinction at runtime:
 The model readiness flags also feed `/readyz` in the hardened FastAPI service.
 Production can require both with `PALETTECARD_REQUIRE_MODELS=true`.
 
-## The new studio
+## The studio
 
-The interface now follows a playful three-stage flow: **pick a photo → let the
-AI find its color story → download three cards**. Its craft-table visual system
-uses hand-drawn outlines, paper panels, tape and pencil motifs, bright crayon
-accents, and the readable Schoolbell display font. Schoolbell is vendored under
-its Apache 2.0 license, so the local studio does not need a font request.
+The interface follows one plain sequence: pick a photo, meet three covers, then
+paint one yourself. Its craft-table visual system uses hand-drawn outlines,
+paper panels, tape, bright crayon colors, and Schoolbell for every text role.
+Schoolbell is vendored under its Apache 2.0 license, so the studio does not need
+a font request.
 
 The redesign includes:
 
-- clear navigation and a real process trail instead of one dense form;
+- real Create, How it works, Card editor, and Privacy screens;
+- a child-drawn visual map that explains both models from pixels upward;
 - visible status for both trained models before a photo is submitted;
-- photo-derived theme colors after generation;
+- three portrait covers with the unchanged source photo in the center;
+- a pointer-based editor that works with a mouse, pen, or finger;
+- brush and eraser tools, size and opacity settings, undo, redo, and PNG export;
+- a layer panel with visibility, ordering, duplication, renaming, and deletion;
+- five model colors plus black, white, custom colors, and a water cup;
+- paint wells that shift the brush color as you circle inside them;
 - responsive layouts for desktop, tablet, and mobile;
 - keyboard focus states and reduced-motion support;
 - one consistent visual language across the public FastAPI studio and local Gradio app.
@@ -71,9 +80,12 @@ from design colors so the image stays the focus.
 4. **Design a palette.** A second neural network proposes background,
    secondary, and accent roles. An OKLCH/Oklab color-theory layer then keeps
    large areas calm, preserves contrast, and checks WCAG readability.
-5. **Make the cards.** Three layouts are rendered at high resolution. The local
-   app saves PNGs; the serverless web app returns optimized JPEG downloads to
-   stay comfortably within its response limit.
+5. **Make the covers.** Three portrait layouts place the unchanged photo at the
+   center. The local app saves PNGs, while the serverless app returns optimized
+   JPEG downloads to stay within its response limit.
+6. **Paint one yourself.** The browser editor puts the chosen cover on a locked
+   base layer. New paint stays on separate layers, and export flattens only the
+   visible stack into one PNG.
 
 ## What I actually trained
 
@@ -177,7 +189,7 @@ review receipts, and the optional Wikimedia acquisition workflow.
 ```text
 app.py                         beginner-friendly local Gradio launcher
 vercel_app.py                  FastAPI entry point for Vercel
-frontend/                      public craft-table studio
+frontend/                      public studio, visual AI map, privacy, and layer editor
 src/palette_card/model.py      MobileNet checkpoint loading and inference
 src/palette_card/palette.py    source-color extraction and contrast checks
 src/palette_card/palette_model.py  learned palette-role model
@@ -241,9 +253,12 @@ end-to-end tests. For a production-style readiness check, start
 `palette-card-serve` and request `/readyz`; it returns HTTP 200 only when the
 configured model policy is satisfied.
 
-The August 24, 2026 redesign was also checked in the running application at a
-desktop viewport and at 390 × 844 mobile size. A local flower image was used as
-the end-to-end smoke-test input and was not added to the repository.
+The August 25, 2026 workflow was also checked in the running application at a
+desktop viewport and at 390 × 844 mobile size. The check covered model
+generation, all three portrait covers, paint mixing, mouse and touch drawing,
+water dilution, layer controls, undo, redo, privacy navigation, and PNG export.
+A local flower image was used as the end-to-end smoke-test input and was not
+added to the repository.
 
 The source code is available under the [MIT License](LICENSE). That license
 does not grant rights to third-party training images or replace their original
