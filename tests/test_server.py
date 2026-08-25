@@ -40,10 +40,15 @@ def test_health_and_fail_closed_readiness(tmp_path: Path):
     assert "PaletteCard AI" in root.text
     assert 'data-view="how"' in root.text
     assert 'data-view="editor"' in root.text
+    assert 'id="text-controls"' in root.text
+    assert 'value="Fredoka"' in root.text
+    assert 'value="Comic Neue"' in root.text
+    assert 'value="Patrick Hand"' in root.text
     assert 'data-view="privacy"' in root.text
     assert 'id="artboard"' in root.text
     assert styles.status_code == 200
     assert 'font-family: "Schoolbell"' in styles.text
+    assert 'font-family: "Fredoka"' in styles.text
     assert health.status_code == 200
     assert health.headers["x-content-type-options"] == "nosniff"
     assert ready.status_code == 503

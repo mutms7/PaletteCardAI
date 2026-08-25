@@ -127,9 +127,9 @@
           <div class="results-heading"><div><p class="eyebrow">Three starting points</p><h2 id="results-title">Pick a cover to paint on</h2></div><button class="text-button" id="start-over" type="button">Use another photo</button></div>
           <div class="result-status" role="status" aria-live="polite"><strong id="result-status-title">Your covers are ready.</strong><span id="result-status-copy">Pick one, then open the editor.</span></div>
           <div class="card-grid" id="card-grid">
-            <article class="direction"><div class="card-preview"><span class="card-placeholder">Storybook cover</span></div><div class="direction-copy"><strong>Storybook garden</strong><p>Flowers and little sparks frame the photo.</p></div><div class="card-actions"><button class="paper-button edit-card" type="button" data-card="0">Paint this one</button><a class="download-card" hidden>Download</a></div></article>
-            <article class="direction"><div class="card-preview"><span class="card-placeholder">Scrapbook cover</span></div><div class="direction-copy"><strong>Taped scrapbook</strong><p>Paint dabs and paper tape make it feel collected.</p></div><div class="card-actions"><button class="paper-button edit-card" type="button" data-card="1">Paint this one</button><a class="download-card" hidden>Download</a></div></article>
-            <article class="direction"><div class="card-preview"><span class="card-placeholder">Window cover</span></div><div class="direction-copy"><strong>Quiet window</strong><p>A soft round frame keeps the photo personal.</p></div><div class="card-actions"><button class="paper-button edit-card" type="button" data-card="2">Paint this one</button><a class="download-card" hidden>Download</a></div></article>
+            <article class="direction"><div class="card-preview"><span class="card-placeholder">Pressed petal cover</span></div><div class="direction-copy"><strong>Pressed petal keepsake</strong><p>Little paper petals and stems make the photo feel saved in a sketchbook.</p></div><div class="card-actions"><button class="paper-button edit-card" type="button" data-card="0">Paint this one</button><a class="download-card" hidden>Download</a></div></article>
+            <article class="direction"><div class="card-preview"><span class="card-placeholder">Scrapbook cover</span></div><div class="direction-copy"><strong>Happy scrapbook</strong><p>Torn paper, stitches, tape, and stickers give this one plenty of bounce.</p></div><div class="card-actions"><button class="paper-button edit-card" type="button" data-card="1">Paint this one</button><a class="download-card" hidden>Download</a></div></article>
+            <article class="direction"><div class="card-preview"><span class="card-placeholder">Postage cover</span></div><div class="direction-copy"><strong>Postage window</strong><p>A perforated stamp frame turns the photo into a tiny note sent with love.</p></div><div class="card-actions"><button class="paper-button edit-card" type="button" data-card="2">Paint this one</button><a class="download-card" hidden>Download</a></div></article>
           </div>
         </section>
       </section>
@@ -150,7 +150,7 @@
       </section>
 
       <section class="app-view editor-view" data-view="editor" hidden>
-        <div class="editor-heading"><div><p class="eyebrow">Your card editor</p><h1>Make it feel like yours.</h1><p>Pick up a brush, mix paint in the tray, and draw on separate layers.</p></div><div class="editor-heading-actions"><button class="text-button" id="new-blank" type="button">New blank cover</button><button class="paper-button export-button" id="export-art" type="button">Export PNG <span aria-hidden="true">↓</span></button></div></div>
+        <div class="editor-heading"><div><p class="eyebrow">Your card editor</p><h1>Make it feel like yours.</h1><p>Paint on separate layers, then add words in a letter style you like.</p></div><div class="editor-heading-actions"><button class="text-button" id="new-blank" type="button">New blank cover</button><button class="paper-button export-button" id="export-art" type="button">Export PNG <span aria-hidden="true">↓</span></button></div></div>
 
         <div class="editor-shell">
           <aside class="toolbox paper-panel" aria-label="Drawing tools">
@@ -158,11 +158,27 @@
             <div class="tool-grid" role="toolbar" aria-label="Paint tools">
               <button class="tool-button is-active" type="button" data-tool="brush" aria-pressed="true"><svg viewBox="0 0 64 64" aria-hidden="true"><path d="M14 52c9 2 15-3 16-12M25 43 47 12c3-4 9 1 6 5L31 47M14 52c-4-8 2-13 11-9 6 3 4 11-2 14-6 3-13 0-9-5Z"/></svg><span>Brush</span></button>
               <button class="tool-button" type="button" data-tool="eraser" aria-pressed="false"><svg viewBox="0 0 64 64" aria-hidden="true"><path d="m13 39 23-26c3-3 7-3 10 0l7 7c3 3 3 7 0 10L31 53H18L12 47c-2-2-2-6 1-8ZM28 52l-13-13M32 52h22"/></svg><span>Eraser</span></button>
+              <button class="tool-button" type="button" data-tool="text" aria-pressed="false"><svg viewBox="0 0 64 64" aria-hidden="true"><path d="M12 16V9h40v7M32 10v44M23 54h18"/><path d="M18 9h28"/></svg><span>Text</span></button>
             </div>
             <label class="slider-row"><span>Brush size <output id="size-output">18</output></span><input id="brush-size" type="range" min="3" max="90" value="18" /></label>
             <label class="slider-row"><span>Paint strength <output id="opacity-output">100%</output></span><input id="brush-opacity" type="range" min="10" max="100" value="100" /></label>
             <div class="history-buttons"><button id="undo-action" type="button" disabled>↶ Undo</button><button id="redo-action" type="button" disabled>Redo ↷</button></div>
             <div class="mix-readout"><span id="brush-color-dot"></span><div><small>Your brush has</small><output id="brush-color-label">#E64955</output></div></div>
+            <section class="text-controls" id="text-controls" aria-labelledby="text-controls-title" hidden>
+              <div class="text-controls-heading"><div><small>Selected text</small><h3 id="text-controls-title">Letter box</h3></div><button class="round-button" id="add-text" type="button" aria-label="Add another text layer">+</button></div>
+              <label class="text-field"><span>Your words</span><textarea id="text-content" rows="3" maxlength="180">Your words here</textarea></label>
+              <label class="text-field"><span>Letter style</span><select id="text-font"><option value="Schoolbell">Schoolbell crayon</option><option value="Fredoka">Fredoka bubbles</option><option value="Comic Neue">Comic Neue</option><option value="Patrick Hand">Patrick Hand</option></select></label>
+              <label class="slider-row"><span>Letter size <output id="text-size-output">72</output></span><input id="text-size" type="range" min="20" max="180" value="72" /></label>
+              <label class="slider-row"><span>Text box width <output id="text-width-output">560</output></span><input id="text-width" type="range" min="160" max="780" value="560" /></label>
+              <label class="slider-row"><span>Turn <output id="text-rotation-output">0°</output></span><input id="text-rotation" type="range" min="-180" max="180" value="0" /></label>
+              <div class="text-detail-grid">
+                <label><span>Text color</span><input id="text-color" type="color" value="#292531" /></label>
+                <label><span>Left and right</span><input id="text-x" type="number" min="0" max="900" step="5" value="450" /></label>
+                <label><span>Up and down</span><input id="text-y" type="number" min="0" max="1200" step="5" value="260" /></label>
+              </div>
+              <fieldset class="text-align-controls"><legend>Line up the words</legend><div><button type="button" data-align="left" aria-pressed="false">Left</button><button type="button" data-align="center" aria-pressed="true">Center</button><button type="button" data-align="right" aria-pressed="false">Right</button></div></fieldset>
+              <p class="text-drag-note">Drag the words on the card, or use the position boxes above.</p>
+            </section>
           </aside>
 
           <section class="canvas-desk" aria-label="Card canvas">

@@ -152,6 +152,56 @@ def _spark(draw: ImageDraw.ImageDraw, center, radius, fill, width=7):
     draw.line((x, y - radius, x, y + radius), fill=fill, width=width)
 
 
+def _star(draw: ImageDraw.ImageDraw, center, radius, fill, outline, points=5):
+    """Draw a slightly wonky paper star."""
+
+    x, y = center
+    vertices = []
+    for index in range(points * 2):
+        angle = -math.pi / 2 + index * math.pi / points
+        reach = radius if index % 2 == 0 else radius * 0.44
+        if index % 3 == 0:
+            reach *= 0.92
+        vertices.append((x + math.cos(angle) * reach, y + math.sin(angle) * reach))
+    draw.polygon(vertices, fill=fill, outline=outline)
+
+
+def _heart(draw: ImageDraw.ImageDraw, center, radius, fill, outline):
+    """Draw a simple cut-paper heart."""
+
+    x, y = center
+    draw.ellipse((x - radius, y - radius * .7, x, y + radius * .3), fill=fill, outline=outline, width=3)
+    draw.ellipse((x, y - radius * .7, x + radius, y + radius * .3), fill=fill, outline=outline, width=3)
+    draw.polygon(((x - radius, y), (x + radius, y), (x, y + radius * 1.25)), fill=fill)
+    draw.line(((x - radius, y), (x, y + radius * 1.25), (x + radius, y)), fill=outline, width=3)
+
+
+def _dashed_line(draw: ImageDraw.ImageDraw, start, end, fill, width=5, dash=18, gap=13):
+    """Draw a stitched line between two points."""
+
+    x1, y1 = start
+    x2, y2 = end
+    distance = math.hypot(x2 - x1, y2 - y1)
+    if not distance:
+        return
+    dx, dy = (x2 - x1) / distance, (y2 - y1) / distance
+    position = 0.0
+    while position < distance:
+        stop = min(distance, position + dash)
+        draw.line((x1 + dx * position, y1 + dy * position, x1 + dx * stop, y1 + dy * stop), fill=fill, width=width)
+        position += dash + gap
+
+
+def _petal(draw: ImageDraw.ImageDraw, center, radius, fill, outline, angle=0):
+    """Draw one pressed-paper petal as a rotated oval."""
+
+    petal = Image.new("RGBA", (radius * 3, radius * 4), (0, 0, 0, 0))
+    petal_draw = ImageDraw.Draw(petal)
+    petal_draw.ellipse((radius // 2, radius // 2, radius * 5 // 2, radius * 7 // 2), fill=fill, outline=outline, width=3)
+    petal = petal.rotate(angle, resample=Image.Resampling.BICUBIC, expand=True)
+    draw._image.paste(petal, (int(center[0] - petal.width / 2), int(center[1] - petal.height / 2)), petal)
+
+
 def render_card(
     image: Image.Image | None,
     colors: Sequence[Color],
@@ -183,37 +233,56 @@ def render_card(
     scale_x, scale_y = width / 1200, height / 1600
 
     if variant % 3 == 0:
+        # A pressed-flower keepsake with a roomy photo and little paper petals.
         draw.rounded_rectangle((48, 46, width - 48, height - 46), radius=72, fill=surface, outline=ink, width=max(4, width // 180))
-        for x, y, color in ((130, 390, primary), (1040, 410, secondary), (145, 1120, secondary), (1045, 1090, primary)):
-            for angle in range(0, 360, 60):
-                px = x + math.cos(math.radians(angle)) * 44 * scale_x
-                py = y + math.sin(math.radians(angle)) * 44 * scale_y
-                draw.ellipse((px - 22, py - 34, px + 22, py + 34), fill=tints[(angle // 60) % len(tints)], outline=ink, width=3)
-            draw.ellipse((x - 24, y - 24, x + 24, y + 24), fill=color, outline=ink, width=3)
-        _photo_window(canvas, image, (205 * scale_x, 390 * scale_y, 995 * scale_x, 1210 * scale_y), surface, ink, radius=int(70 * scale_x))
-        draw.text((width // 2, 55 * scale_y), label, fill=accent, font=small_font, anchor="ma")
+        draw.rounded_rectangle((72, 70, width - 72, height - 70), radius=58, outline=tints[2], width=max(3, width // 300))
+        photo_box = (210 * scale_x, 385 * scale_y, 990 * scale_x, 1205 * scale_y)
+        for x, y, color, turn in ((145, 410, primary, -28), (1060, 450, secondary, 32), (145, 1090, secondary, 18), (1050, 1110, primary, -24)):
+            stem_end = (x + (-35 if x > width / 2 else 35), y + 95)
+            draw.arc((min(x, stem_end[0]) - 30, y - 5, max(x, stem_end[0]) + 30, stem_end[1] + 35), 165 if x < width / 2 else 15, 300 if x < width / 2 else 150, fill=ink, width=5)
+            _petal(draw, (x, y), 25, color, ink, turn)
+            _petal(draw, (x + (-25 if x > width / 2 else 25), y + 36), 18, tints[(turn // 12) % len(tints)], ink, turn + 48)
+        _photo_window(canvas, image, photo_box, surface, ink, radius=int(66 * scale_x))
+        for x, y, color in ((118, 290, accent), (1080, 290, secondary), (102, 1260, primary), (1090, 1260, accent)):
+            _spark(draw, (int(x * scale_x), int(y * scale_y)), int(20 * scale_x), color, width=max(4, width // 260))
+        draw.text((width // 2, 58 * scale_y), f"A LITTLE {label} KEEPSAKE", fill=accent, font=small_font, anchor="ma")
         _centered_text(draw, layout.title_box, layout.title_lines, title_font, surface_ink)
         _centered_text(draw, layout.message_box, layout.message_lines, message_font, surface_ink)
-        _spark(draw, (120, 250), 28, accent)
-        _spark(draw, (1080, 260), 24, secondary)
     elif variant % 3 == 1:
-        draw.rounded_rectangle((62, 58, width - 62, height - 58), radius=36, fill=surface, outline=ink, width=max(4, width // 200))
-        draw.polygon(((0, 330), (width, 270), (width, 470), (0, 530)), fill=tints[0])
-        draw.polygon(((0, 1120), (width, 1050), (width, 1240), (0, 1310)), fill=tints[1])
-        _photo_window(canvas, image, (170 * scale_x, 385 * scale_y, 1030 * scale_x, 1215 * scale_y), surface, ink, radius=int(24 * scale_x))
+        # A layered scrapbook with torn paper, stitches, tape, and stickers.
+        draw.rounded_rectangle((54, 52, width - 54, height - 52), radius=40, fill=surface, outline=ink, width=max(4, width // 200))
+        back_one = ((82, 344), (1115, 310), (1130, 1210), (70, 1250))
+        back_two = ((120, 370), (1070, 350), (1095, 1235), (100, 1205))
+        draw.polygon(back_one, fill=tints[0], outline=ink)
+        draw.polygon(back_two, fill=tints[1], outline=ink)
+        _dashed_line(draw, (100, 365), (1095, 330), accent, width=5, dash=20, gap=15)
+        _dashed_line(draw, (105, 1230), (1100, 1200), accent, width=5, dash=20, gap=15)
+        _photo_window(canvas, image, (185 * scale_x, 395 * scale_y, 1015 * scale_x, 1195 * scale_y), surface, ink, radius=int(24 * scale_x))
         tape = (255, 218, 92)
-        draw.polygon(((180, 365), (360, 346), (372, 410), (190, 426)), fill=tape)
-        draw.polygon(((835, 1182), (1020, 1160), (1025, 1226), (842, 1242)), fill=tape)
-        draw.text((width // 2, 55 * scale_y), label, fill=accent, font=small_font, anchor="ma")
+        draw.polygon(((155, 365), (360, 345), (368, 418), (164, 432)), fill=tape, outline=ink)
+        draw.polygon(((830, 1165), (1040, 1148), (1035, 1220), (838, 1234)), fill=tape, outline=ink)
+        _star(draw, (100, 555), 40, primary, ink)
+        _star(draw, (1090, 930), 34, secondary, ink)
+        _heart(draw, (1085, 560), 27, accent, ink)
+        _heart(draw, (112, 980), 22, primary, ink)
+        draw.text((width // 2, 58 * scale_y), f"FOUND COLORS · {label}", fill=accent, font=small_font, anchor="ma")
         _centered_text(draw, layout.title_box, layout.title_lines, title_font, surface_ink)
         _centered_text(draw, layout.message_box, layout.message_lines, message_font, surface_ink)
-        for x, y, color, radius in ((105, 720, primary, 38), (1080, 600, secondary, 28), (110, 1000, accent, 24), (1080, 980, primary, 34)):
-            draw.ellipse((x - radius, y - radius, x + radius, y + radius), fill=color, outline=ink, width=3)
     else:
+        # A cheerful postage card with a perforated photo frame and ink marks.
         draw.rounded_rectangle((42, 40, width - 42, height - 40), radius=86, fill=surface, outline=ink, width=max(4, width // 200))
         draw.rounded_rectangle((70, 68, width - 70, height - 68), radius=68, outline=tints[2], width=max(3, width // 300))
-        _photo_window(canvas, image, (190 * scale_x, 395 * scale_y, 1010 * scale_x, 1195 * scale_y), bg, ink, radius=int(210 * scale_x))
-        draw.text((width // 2, 58 * scale_y), label, fill=accent, font=small_font, anchor="ma")
+        frame = (160, 365, 1040, 1225)
+        draw.rectangle(frame, fill=primary, outline=ink, width=4)
+        hole_radius = 12
+        for x in range(frame[0] + 24, frame[2], 42):
+            draw.ellipse((x - hole_radius, frame[1] - hole_radius, x + hole_radius, frame[1] + hole_radius), fill=surface)
+            draw.ellipse((x - hole_radius, frame[3] - hole_radius, x + hole_radius, frame[3] + hole_radius), fill=surface)
+        for y in range(frame[1] + 24, frame[3], 42):
+            draw.ellipse((frame[0] - hole_radius, y - hole_radius, frame[0] + hole_radius, y + hole_radius), fill=surface)
+            draw.ellipse((frame[2] - hole_radius, y - hole_radius, frame[2] + hole_radius, y + hole_radius), fill=surface)
+        _photo_window(canvas, image, (205 * scale_x, 410 * scale_y, 995 * scale_x, 1180 * scale_y), bg, ink, radius=int(26 * scale_x))
+        draw.text((width // 2, 58 * scale_y), f"POSTED WITH LOVE · {label}", fill=accent, font=small_font, anchor="ma")
         _centered_text(draw, layout.title_box, layout.title_lines, title_font, surface_ink)
         _centered_text(draw, layout.message_box, layout.message_lines, message_font, surface_ink)
         swatch_y = int(1510 * scale_y)
@@ -223,8 +292,10 @@ def render_card(
         for index, color in enumerate(source):
             x = start + int(index * 116 * scale_x)
             draw.ellipse((x - swatch_radius, swatch_y - swatch_radius, x + swatch_radius, swatch_y + swatch_radius), fill=_rgb(color), outline=ink, width=3)
-        draw.arc((75, 255, 310, 410), 195, 340, fill=primary, width=10)
-        draw.arc((width - 310, 260, width - 75, 415), 20, 165, fill=secondary, width=10)
+        draw.arc((70, 245, 320, 410), 188, 340, fill=primary, width=10)
+        draw.arc((width - 320, 250, width - 70, 415), 20, 172, fill=secondary, width=10)
+        draw.arc((70, 260, 330, 430), 192, 338, fill=accent, width=4)
+        _star(draw, (1075, 1260), 34, secondary, ink)
     return canvas
 
 

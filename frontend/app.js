@@ -344,21 +344,51 @@ const sizeOutput = qs("#size-output");
 const opacityOutput = qs("#opacity-output");
 const colorDot = qs("#brush-color-dot");
 const colorLabel = qs("#brush-color-label");
+const toolbox = qs(".toolbox");
+const textControls = qs("#text-controls");
+const textContent = qs("#text-content");
+const textFont = qs("#text-font");
+const textSize = qs("#text-size");
+const textWidth = qs("#text-width");
+const textRotation = qs("#text-rotation");
+const textColor = qs("#text-color");
+const textX = qs("#text-x");
+const textY = qs("#text-y");
+const TEXT_FONTS = ["Schoolbell", "Fredoka", "Comic Neue", "Patrick Hand"];
 let layers = [];
 let selectedLayerId = null;
 let layerCounter = 0;
 let currentTool = "brush";
 let brushColor = "#e64955";
 let drawing = false;
+let draggingText = false;
+let textDragOffset = null;
+let textEditBefore = null;
 let previousPoint = null;
 let undoStack = [];
 let redoStack = [];
 
-function makeLayer(name, locked = false) {
+function makeLayer(name, locked = false, type = locked ? "base" : "paint") {
   const canvas = document.createElement("canvas");
   canvas.width = ARTBOARD_WIDTH;
   canvas.height = ARTBOARD_HEIGHT;
-  return { id: `layer-${++layerCounter}`, name, canvas, visible: true, locked };
+  return { id: `layer-${++layerCounter}`, name, canvas, visible: true, locked, type };
+}
+
+function makeTextLayer(name = "Words", x = ARTBOARD_WIDTH / 2, y = 260) {
+  return {
+    ...makeLayer(name, false, "text"),
+    text: "Your words here",
+    fontFamily: "Schoolbell",
+    fontSize: 72,
+    color: "#292531",
+    align: "center",
+    width: 560,
+    rotation: 0,
+    x,
+    y,
+    bounds: { width: 560, height: 90 },
+  };
 }
 
 function selectedLayer() {
@@ -382,6 +412,85 @@ function blankBase() {
   return base;
 }
 
+function wrapText(context, text, maxWidth) {
+  const paragraphs = String(text || " ").split("\n");
+  const lines = [];
+  paragraphs.forEach((paragraph) => {
+    const words = paragraph.split(/\s+/).filter(Boolean);
+    if (!words.length) {
+      lines.push("");
+      return;
+    }
+    let line = "";
+    words.forEach((word) => {
+      const candidate = line ? `${line} ${word}` : word;
+      if (line && context.measureText(candidate).width > maxWidth) {
+        lines.push(line);
+        line = word;
+      } else {
+        line = candidate;
+      }
+    });
+    lines.push(line);
+  });
+  return lines.slice(0, 8);
+}
+
+function textLayout(context, layer) {
+  context.font = `${layer.fontSize}px "${layer.fontFamily}"`;
+  const lines = wrapText(context, layer.text, layer.width);
+  const lineHeight = layer.fontSize * 1.08;
+  return { lines, lineHeight, width: layer.width, height: Math.max(lineHeight, lines.length * lineHeight) };
+}
+
+function drawTextLayer(context, layer) {
+  context.save();
+  context.translate(layer.x, layer.y);
+  context.rotate(layer.rotation * Math.PI / 180);
+  context.fillStyle = layer.color;
+  context.textBaseline = "top";
+  context.textAlign = layer.align;
+  const layout = textLayout(context, layer);
+  const textXPosition = layer.align === "left" ? -layout.width / 2 : layer.align === "right" ? layout.width / 2 : 0;
+  layout.lines.forEach((line, index) => context.fillText(line, textXPosition, -layout.height / 2 + index * layout.lineHeight));
+  layer.bounds = { width: layout.width, height: layout.height };
+  context.restore();
+}
+
+function drawTextSelection(context, layer) {
+  const bounds = layer.bounds || { width: layer.width, height: layer.fontSize * 1.08 };
+  const padding = 14;
+  context.save();
+  context.translate(layer.x, layer.y);
+  context.rotate(layer.rotation * Math.PI / 180);
+  context.strokeStyle = "#e64955";
+  context.fillStyle = "#ffd84d";
+  context.lineWidth = 3;
+  context.setLineDash([10, 8]);
+  context.strokeRect(-bounds.width / 2 - padding, -bounds.height / 2 - padding, bounds.width + padding * 2, bounds.height + padding * 2);
+  context.setLineDash([]);
+  [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([horizontal, vertical]) => {
+    context.beginPath();
+    context.arc(horizontal * (bounds.width / 2 + padding), vertical * (bounds.height / 2 + padding), 8, 0, Math.PI * 2);
+    context.fill();
+    context.stroke();
+  });
+  context.restore();
+}
+
+function textLayerAt(point) {
+  return [...layers].reverse().find((layer) => {
+    if (layer.type !== "text" || !layer.visible) return false;
+    const angle = -layer.rotation * Math.PI / 180;
+    const dx = point.x - layer.x;
+    const dy = point.y - layer.y;
+    const localX = dx * Math.cos(angle) - dy * Math.sin(angle);
+    const localY = dx * Math.sin(angle) + dy * Math.cos(angle);
+    const bounds = layer.bounds || { width: layer.width, height: layer.fontSize * 1.08 };
+    return Math.abs(localX) <= bounds.width / 2 + 22 && Math.abs(localY) <= bounds.height / 2 + 22;
+  });
+}
+
 function resetEditor(base = blankBase()) {
   layers = [base, makeLayer("Paint 1")];
   selectedLayerId = layers[1].id;
@@ -392,12 +501,16 @@ function resetEditor(base = blankBase()) {
   updateHistoryButtons();
 }
 
-function renderComposite() {
+function renderComposite(showSelection = true) {
   if (!layers.length) return;
   displayContext.clearRect(0, 0, ARTBOARD_WIDTH, ARTBOARD_HEIGHT);
   layers.forEach((layer) => {
-    if (layer.visible) displayContext.drawImage(layer.canvas, 0, 0);
+    if (!layer.visible) return;
+    if (layer.type === "text") drawTextLayer(displayContext, layer);
+    else displayContext.drawImage(layer.canvas, 0, 0);
   });
+  const layer = selectedLayer();
+  if (showSelection && currentTool === "text" && layer?.type === "text" && layer.visible) drawTextSelection(displayContext, layer);
 }
 
 function renderLayers() {
@@ -419,9 +532,15 @@ function renderLayers() {
     const select = document.createElement("button");
     select.type = "button";
     select.className = "layer-select";
-    select.textContent = `${layer.locked ? "▣ " : "✎ "}${layer.name}`;
+    select.textContent = `${layer.type === "text" ? "T " : layer.locked ? "▣ " : "✎ "}${layer.name}`;
     select.title = layer.name;
-    select.addEventListener("click", () => { selectedLayerId = layer.id; renderLayers(); });
+    select.addEventListener("click", () => {
+      selectedLayerId = layer.id;
+      if (layer.type === "text") currentTool = "text";
+      renderLayers();
+      updateToolButtons();
+      renderComposite();
+    });
     select.addEventListener("dblclick", () => renameSelectedLayer());
     row.append(visibility, select);
     layersList.append(row);
@@ -433,14 +552,50 @@ function renderLayers() {
   qs("#delete-layer").disabled = !layer || layer.locked;
   qs("#duplicate-layer").disabled = !layer;
   qs("#rename-layer").disabled = !layer;
+  updateTextControls();
 }
 
-function addPaintLayer(name = `Paint ${layers.filter((layer) => !layer.locked).length + 1}`) {
+function addPaintLayer(name = `Paint ${layers.filter((layer) => layer.type === "paint").length + 1}`) {
   const layer = makeLayer(name);
   layers.push(layer);
   selectedLayerId = layer.id;
+  currentTool = "brush";
   renderLayers();
+  updateToolButtons();
   renderComposite();
+}
+
+function addTextLayer(x = ARTBOARD_WIDTH / 2, y = 260) {
+  const count = layers.filter((layer) => layer.type === "text").length + 1;
+  const layer = makeTextLayer(`Words ${count}`, x, y);
+  layers.push(layer);
+  selectedLayerId = layer.id;
+  currentTool = "text";
+  document.fonts.load(`${layer.fontSize}px "${layer.fontFamily}"`).finally(() => renderComposite());
+  renderLayers();
+  updateToolButtons();
+  renderComposite();
+  return layer;
+}
+
+function updateTextControls() {
+  const layer = selectedLayer();
+  const isText = layer?.type === "text";
+  textControls.hidden = !isText;
+  toolbox.classList.toggle("has-text", isText);
+  if (!isText) return;
+  textContent.value = layer.text;
+  textFont.value = layer.fontFamily;
+  textSize.value = String(layer.fontSize);
+  textWidth.value = String(layer.width);
+  textRotation.value = String(layer.rotation);
+  textColor.value = layer.color;
+  textX.value = String(Math.round(layer.x));
+  textY.value = String(Math.round(layer.y));
+  qs("#text-size-output").textContent = String(layer.fontSize);
+  qs("#text-width-output").textContent = String(layer.width);
+  qs("#text-rotation-output").textContent = `${layer.rotation}°`;
+  qsa("[data-align]", textControls).forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.align === layer.align)));
 }
 
 function renameSelectedLayer() {
@@ -466,11 +621,27 @@ qs("#delete-layer").addEventListener("click", () => {
 qs("#duplicate-layer").addEventListener("click", () => {
   const source = selectedLayer();
   if (!source) return;
-  const copy = makeLayer(`${source.name} copy`);
-  copy.canvas.getContext("2d").drawImage(source.canvas, 0, 0);
+  let copy;
+  if (source.type === "text") {
+    copy = makeTextLayer(`${source.name} copy`, clamp(source.x + 26, 60, ARTBOARD_WIDTH - 60), clamp(source.y + 26, 60, ARTBOARD_HEIGHT - 60));
+    Object.assign(copy, {
+      text: source.text,
+      fontFamily: source.fontFamily,
+      fontSize: source.fontSize,
+      color: source.color,
+      align: source.align,
+      width: source.width,
+      rotation: source.rotation,
+    });
+  } else {
+    copy = makeLayer(`${source.name} copy`);
+    copy.canvas.getContext("2d").drawImage(source.canvas, 0, 0);
+  }
   layers.splice(layers.indexOf(source) + 1, 0, copy);
   selectedLayerId = copy.id;
+  currentTool = copy.type === "text" ? "text" : "brush";
   renderLayers();
+  updateToolButtons();
   renderComposite();
 });
 qs("#move-layer-up").addEventListener("click", () => {
@@ -490,9 +661,20 @@ function updateToolButtons() {
     button.classList.toggle("is-active", active);
     button.setAttribute("aria-pressed", String(active));
   });
-  artboard.style.cursor = currentTool === "eraser" ? "cell" : "crosshair";
+  artboard.style.cursor = currentTool === "text" ? "move" : currentTool === "eraser" ? "cell" : "crosshair";
+  updateTextControls();
 }
-qsa(".tool-button").forEach((button) => button.addEventListener("click", () => { currentTool = button.dataset.tool; updateToolButtons(); }));
+qsa(".tool-button").forEach((button) => button.addEventListener("click", () => {
+  const nextTool = button.dataset.tool;
+  if (nextTool === "text" && selectedLayer()?.type !== "text") {
+    addTextLayer();
+    return;
+  }
+  currentTool = nextTool;
+  updateToolButtons();
+  renderComposite();
+}));
+qs("#add-text").addEventListener("click", () => addTextLayer(ARTBOARD_WIDTH / 2, 320));
 brushSize.addEventListener("input", () => { sizeOutput.textContent = brushSize.value; });
 brushOpacity.addEventListener("input", () => { opacityOutput.textContent = `${brushOpacity.value}%`; });
 
@@ -572,13 +754,36 @@ function pointerPoint(event) {
   };
 }
 
+function textState(layer) {
+  return {
+    text: layer.text,
+    fontFamily: layer.fontFamily,
+    fontSize: layer.fontSize,
+    color: layer.color,
+    align: layer.align,
+    width: layer.width,
+    rotation: layer.rotation,
+    x: layer.x,
+    y: layer.y,
+  };
+}
+
 function snapshot(layer) {
-  return { layerId: layer.id, dataUrl: layer.canvas.toDataURL("image/png") };
+  if (layer.type === "text") return { kind: "text", layerId: layer.id, state: textState(layer) };
+  return { kind: "canvas", layerId: layer.id, dataUrl: layer.canvas.toDataURL("image/png") };
+}
+
+function recordHistory(item) {
+  if (!item) return;
+  undoStack.push(item);
+  undoStack = undoStack.slice(-24);
+  redoStack = [];
+  updateHistoryButtons();
 }
 
 function drawSegment(from, to) {
   const layer = selectedLayer();
-  if (!layer || layer.locked) return;
+  if (!layer || layer.locked || layer.type !== "paint") return;
   const context = layer.canvas.getContext("2d");
   context.save();
   context.lineCap = "round";
@@ -596,22 +801,45 @@ function drawSegment(from, to) {
 }
 
 artboard.addEventListener("pointerdown", (event) => {
+  const point = pointerPoint(event);
+  if (currentTool === "text") {
+    event.preventDefault();
+    let layer = textLayerAt(point);
+    if (!layer) layer = selectedLayer()?.type === "text" ? selectedLayer() : addTextLayer(point.x, point.y);
+    selectedLayerId = layer.id;
+    recordHistory(snapshot(layer));
+    draggingText = true;
+    textDragOffset = { x: point.x - layer.x, y: point.y - layer.y };
+    artboard.setPointerCapture(event.pointerId);
+    renderLayers();
+    updateToolButtons();
+    renderComposite();
+    return;
+  }
   const layer = selectedLayer();
-  if (!layer || layer.locked) {
+  if (!layer || layer.locked || layer.type !== "paint") {
     showToast("Pick or add a paint layer before drawing.");
     return;
   }
   event.preventDefault();
   artboard.setPointerCapture(event.pointerId);
-  undoStack.push(snapshot(layer));
-  undoStack = undoStack.slice(-24);
-  redoStack = [];
+  recordHistory(snapshot(layer));
   drawing = true;
-  previousPoint = pointerPoint(event);
+  previousPoint = point;
   drawSegment(previousPoint, { x: previousPoint.x + .1, y: previousPoint.y + .1 });
-  updateHistoryButtons();
 });
 artboard.addEventListener("pointermove", (event) => {
+  if (draggingText) {
+    event.preventDefault();
+    const layer = selectedLayer();
+    if (!layer || layer.type !== "text") return;
+    const point = pointerPoint(event);
+    layer.x = clamp(point.x - textDragOffset.x, 0, ARTBOARD_WIDTH);
+    layer.y = clamp(point.y - textDragOffset.y, 0, ARTBOARD_HEIGHT);
+    updateTextControls();
+    renderComposite();
+    return;
+  }
   if (!drawing) return;
   event.preventDefault();
   const next = pointerPoint(event);
@@ -619,8 +847,10 @@ artboard.addEventListener("pointermove", (event) => {
   previousPoint = next;
 });
 function endDrawing(event) {
-  if (!drawing) return;
+  if (!drawing && !draggingText) return;
   drawing = false;
+  draggingText = false;
+  textDragOffset = null;
   previousPoint = null;
   if (artboard.hasPointerCapture(event.pointerId)) artboard.releasePointerCapture(event.pointerId);
 }
@@ -631,11 +861,22 @@ function restoreSnapshot(item) {
   return new Promise((resolve) => {
     const layer = layers.find((candidate) => candidate.id === item.layerId);
     if (!layer) { resolve(); return; }
+    if (item.kind === "text") {
+      Object.assign(layer, item.state);
+      selectedLayerId = layer.id;
+      currentTool = "text";
+      renderLayers();
+      updateToolButtons();
+      renderComposite();
+      resolve();
+      return;
+    }
     const image = new Image();
     image.onload = () => {
       const context = layer.canvas.getContext("2d");
       context.clearRect(0, 0, ARTBOARD_WIDTH, ARTBOARD_HEIGHT);
       context.drawImage(image, 0, 0);
+      renderLayers();
       renderComposite();
       resolve();
     };
@@ -655,6 +896,53 @@ qs("#undo-action").addEventListener("click", async () => {
   await restoreSnapshot(item);
   updateHistoryButtons();
 });
+
+function beginTextEdit() {
+  const layer = selectedLayer();
+  if (layer?.type === "text" && !textEditBefore) textEditBefore = snapshot(layer);
+}
+
+function commitTextEdit() {
+  if (!textEditBefore) return;
+  const layer = selectedLayer();
+  if (layer?.type === "text" && JSON.stringify(textEditBefore.state) !== JSON.stringify(textState(layer))) recordHistory(textEditBefore);
+  textEditBefore = null;
+}
+
+function bindTextControl(element, property, parse = (value) => value) {
+  element.addEventListener("focus", beginTextEdit);
+  element.addEventListener("pointerdown", beginTextEdit);
+  element.addEventListener("input", () => {
+    const layer = selectedLayer();
+    if (layer?.type !== "text") return;
+    layer[property] = parse(element.value);
+    updateTextControls();
+    renderComposite();
+  });
+  element.addEventListener("change", commitTextEdit);
+  element.addEventListener("blur", commitTextEdit);
+}
+
+bindTextControl(textContent, "text");
+bindTextControl(textSize, "fontSize", Number);
+bindTextControl(textWidth, "width", Number);
+bindTextControl(textRotation, "rotation", Number);
+bindTextControl(textColor, "color");
+bindTextControl(textX, "x", (value) => clamp(Number(value), 0, ARTBOARD_WIDTH));
+bindTextControl(textY, "y", (value) => clamp(Number(value), 0, ARTBOARD_HEIGHT));
+bindTextControl(textFont, "fontFamily");
+textFont.addEventListener("change", () => {
+  const layer = selectedLayer();
+  if (layer?.type === "text") document.fonts.load(`${layer.fontSize}px "${layer.fontFamily}"`).finally(() => renderComposite());
+});
+qsa("[data-align]", textControls).forEach((button) => button.addEventListener("click", () => {
+  const layer = selectedLayer();
+  if (layer?.type !== "text" || layer.align === button.dataset.align) return;
+  recordHistory(snapshot(layer));
+  layer.align = button.dataset.align;
+  updateTextControls();
+  renderComposite();
+}));
 qs("#redo-action").addEventListener("click", async () => {
   const item = redoStack.pop();
   if (!item) return;
@@ -693,8 +981,9 @@ qs("#new-blank").addEventListener("click", () => {
   showToast("Fresh paper. Go make a mess.");
 });
 qs("#export-art").addEventListener("click", () => {
-  renderComposite();
+  renderComposite(false);
   artboard.toBlob((blob) => {
+    renderComposite(true);
     if (!blob) return;
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -709,6 +998,7 @@ qs("#export-art").addEventListener("click", () => {
 resetEditor();
 setBrushColor(brushColor);
 updateToolButtons();
+Promise.all(TEXT_FONTS.map((font) => document.fonts.load(`48px "${font}"`))).finally(() => renderComposite());
 
 window.addEventListener("beforeunload", () => {
   if (currentUrl) URL.revokeObjectURL(currentUrl);

@@ -15,8 +15,8 @@ palette model through a FastAPI endpoint. Upload a photo, leave recognition on
 Auto or correct it manually, generate three real card renders, and download all
 three from the browser. The response carries the generated cards inline, so it
 does not depend on temporary files surviving across serverless instances. The
-card editor runs in the browser and exports a flattened PNG without another
-server request.
+card editor runs in the browser and exports paint and editable text layers as
+one flattened PNG without another server request.
 
 ## Model integration status
 
@@ -45,18 +45,22 @@ Production can require both with `PALETTECARD_REQUIRE_MODELS=true`.
 
 The interface follows one plain sequence: pick a photo, meet three covers, then
 paint one yourself. Its craft-table visual system uses hand-drawn outlines,
-paper panels, tape, bright crayon colors, and Schoolbell for every text role.
-Schoolbell is vendored under its Apache 2.0 license, so the studio does not need
-a font request.
+paper panels, tape, bright crayon colors, and Schoolbell throughout the app UI.
+The editor also includes Fredoka, Comic Neue, and Patrick Hand for words placed
+on the card. All four fonts and their licenses are vendored, so the studio does
+not need a font request.
 
 The redesign includes:
 
 - real Create, How it works, Card editor, and Privacy screens;
 - a child-drawn visual map that explains both models from pixels upward;
 - visible status for both trained models before a photo is submitted;
-- three portrait covers with the unchanged source photo in the center;
+- three distinct portrait covers with the unchanged source photo in the center:
+  a pressed-petal keepsake, a layered scrapbook, and a postage window;
 - a pointer-based editor that works with a mouse, pen, or finger;
-- brush and eraser tools, size and opacity settings, undo, redo, and PNG export;
+- brush, eraser, and text tools with undo, redo, and PNG export;
+- editable text layers with four fonts, wrapping, color, size, width, alignment,
+  rotation, position fields, and direct dragging on the card;
 - a layer panel with visibility, ordering, duplication, renaming, and deletion;
 - five model colors plus black, white, custom colors, and a water cup;
 - paint wells that shift the brush color as you circle inside them;
@@ -84,8 +88,8 @@ from design colors so the image stays the focus.
    center. The local app saves PNGs, while the serverless app returns optimized
    JPEG downloads to stay within its response limit.
 6. **Paint one yourself.** The browser editor puts the chosen cover on a locked
-   base layer. New paint stays on separate layers, and export flattens only the
-   visible stack into one PNG.
+   base layer. New paint and words stay on separate layers, and export flattens
+   only the visible stack into one PNG.
 
 ## What I actually trained
 
@@ -146,7 +150,7 @@ confidence.
 ## Train your own version
 
 Put session-separated images in `data/train`, `data/val`, and `data/test`, with
-one folder per class. Start with at least 30 images per class; 100–200 varied,
+one folder per class. Start with at least 30 images per class; 100 to 200 varied,
 correctly licensed images per class is a much better target.
 
 ```text

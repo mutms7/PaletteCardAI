@@ -3,6 +3,9 @@
   src: url("fonts/Schoolbell-Regular.ttf") format("truetype");
   font-display: swap;
 }
+@font-face { font-family: "Fredoka"; src: url("fonts/Fredoka-Variable.ttf") format("truetype"); font-display: swap; }
+@font-face { font-family: "Comic Neue"; src: url("fonts/ComicNeue-Regular.ttf") format("truetype"); font-display: swap; }
+@font-face { font-family: "Patrick Hand"; src: url("fonts/PatrickHand-Regular.ttf") format("truetype"); font-display: swap; }
 
 :root {
   --paper: #fff8e8;
@@ -331,10 +334,10 @@ fieldset { min-width: 0; }
 .editor-heading p:not(.eyebrow) { margin: 12px 0 0; color: var(--muted); font-size: 1.15rem; }
 .editor-heading-actions { display: flex; align-items: center; gap: 18px; }
 .export-button { background: var(--green); }
-.editor-shell { max-width: 1600px; margin: 0 auto; display: grid; grid-template-columns: 220px minmax(420px, 1fr) 255px; gap: 20px; align-items: start; }
+.editor-shell { max-width: 1600px; margin: 0 auto; display: grid; grid-template-columns: 260px minmax(420px, 1fr) 255px; gap: 20px; align-items: start; }
 .toolbox, .layers-panel { position: sticky; top: 104px; max-height: calc(100vh - 124px); overflow-y: auto; padding: 20px; }
 .toolbox h2, .layers-panel h2, .paint-tray h2 { margin: 0; font-size: 1.6rem; font-weight: 400; }
-.tool-grid { margin-top: 14px; display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+.tool-grid { margin-top: 14px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .tool-button { min-width: 0; padding: 9px 4px; display: grid; place-items: center; gap: 3px; border: 2px solid var(--ink); border-radius: var(--wobble); background: var(--white); }
 .tool-button svg { width: 42px; height: 42px; fill: none; stroke: var(--ink); stroke-width: 3.4; stroke-linecap: round; stroke-linejoin: round; }
 .tool-button.is-active { background: var(--yellow); box-shadow: 2px 2px 0 var(--ink); transform: rotate(-1deg); }
@@ -348,6 +351,24 @@ input[type="range"] { width: 100%; accent-color: var(--red); }
 .mix-readout > span { width: 42px; height: 42px; flex: none; border: 2px solid var(--ink); border-radius: 50%; background: var(--brush-color, var(--red)); }
 .mix-readout small, .mix-readout output { display: block; }
 .mix-readout small { color: var(--muted); }
+.toolbox.has-text > .slider-row, .toolbox.has-text > .mix-readout { display: none; }
+.text-controls { margin-top: 18px; padding-top: 17px; border-top: 2px dashed var(--ink); }
+.text-controls-heading { display: flex; align-items: start; justify-content: space-between; gap: 10px; }
+.text-controls-heading small { color: var(--red); letter-spacing: .08em; text-transform: uppercase; }
+.text-controls h3 { margin: 0; font-size: 1.55rem; font-weight: 400; }
+.text-field { margin-top: 14px; display: grid; gap: 5px; }
+.text-field textarea, .text-field select, .text-detail-grid input[type="number"] { width: 100%; min-height: 44px; border: 2px solid var(--ink); border-radius: 9px 13px 10px 12px; padding: 8px 10px; background: var(--white); }
+.text-field textarea { resize: vertical; line-height: 1.35; }
+#text-font option { font-size: 1rem; }
+.text-detail-grid { margin-top: 15px; display: grid; gap: 10px; }
+.text-detail-grid label { display: grid; gap: 4px; }
+.text-detail-grid input[type="color"] { width: 100%; min-height: 44px; border: 2px solid var(--ink); border-radius: var(--wobble); padding: 4px; background: var(--white); }
+.text-align-controls { margin: 15px 0 0; padding: 0; border: 0; }
+.text-align-controls legend { margin-bottom: 6px; }
+.text-align-controls > div { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
+.text-align-controls button { min-height: 44px; border: 2px solid var(--ink); border-radius: 9px 12px 10px 13px; background: var(--white); }
+.text-align-controls button[aria-pressed="true"] { background: var(--yellow); box-shadow: 2px 2px 0 var(--ink); }
+.text-drag-note { margin: 13px 0 0; color: var(--muted); font-size: .88rem; }
 
 .canvas-desk { min-width: 0; }
 .canvas-note { width: max-content; max-width: 100%; margin: 0 auto 12px; padding: 6px 12px; border: 2px dashed var(--ink); background: var(--white); transform: rotate(-.5deg); }

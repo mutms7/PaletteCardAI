@@ -409,7 +409,7 @@ def analyze_image(image: Image.Image, object_choice: str = "Auto", title: str = 
     elif predictor is not None:
         label, confidence, _ = predictor.predict(image)
         warning = "  Low-confidence warning: try a clearer centered photo or choose the label manually." if confidence < 0.60 else ""
-        recognition = f"Object: {label.title()} — {confidence:.1%} confidence.{warning}"
+        recognition = f"Object: {label.title()}, {confidence:.1%} confidence.{warning}"
     else:
         label = "unclassified object"
         recognition = "Object: not classified (Demo Mode; no confidence claimed). Choose a label manually for a named card."
@@ -539,7 +539,7 @@ def build_app(checkpoint_path: str | Path | None = None, output_dir: str | Path 
         )
         gr.HTML(
             "<main id='top' class='pc-main'><section class='pc-hero' aria-labelledby='pc-hero-title'>"
-            "<div class='pc-hero-copy-wrap'><p class='pc-eyebrow'>A small color studio — made with real AI</p>"
+            "<div class='pc-hero-copy-wrap'><p class='pc-eyebrow'>A small color studio, made with real AI</p>"
             "<h1 id='pc-hero-title'>Your photo has a <span>color story.</span><br>Let's draw it out!</h1>"
             "<p class='pc-hero-copy'>Upload one favorite thing. PaletteCard recognizes it, learns its colors, and turns them into three downloadable greeting cards.</p>"
             "<a class='pc-jump-link' href='#pc-create'>Make a card <span aria-hidden='true'>↓</span></a></div>"
