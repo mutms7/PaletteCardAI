@@ -4,9 +4,9 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="A frontend-only preview of PaletteCard AI, a small color studio for turning one photo into three card directions." />
-    <title>PaletteCard AI — Color Studio Preview</title>
+    <title>PaletteCard AI — Draw a color story</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="styles.css?v=2" />
     <script src="app.js" defer></script>
   </head>
   <body>
@@ -14,38 +14,45 @@
 
     <header class="site-header">
       <a class="wordmark" href="#top" aria-label="PaletteCard AI home">
-        <span class="wordmark-mark" aria-hidden="true"></span>
-        <span>PaletteCard</span>
+        <span class="wordmark-mark" aria-hidden="true">✦</span>
+        <span>PaletteCard <em>AI</em></span>
       </a>
+      <nav aria-label="Main navigation"><a href="#studio">Create</a><a href="#how-it-works">How it works</a><a href="#privacy">About this preview</a></nav>
       <div class="header-meta">
-        <span class="status-badge"><span aria-hidden="true"></span> Local by default</span>
-        <a href="#privacy">How this preview works</a>
+        <span class="status-badge"><span aria-hidden="true"></span> Browser preview</span>
       </div>
     </header>
 
     <main id="top">
       <section class="hero" aria-labelledby="hero-title">
-        <div>
+        <div class="hero-copy-block">
           <p class="eyebrow">A small color studio</p>
-          <h1 id="hero-title">Make a color story<br />from one photo.</h1>
+          <h1 id="hero-title">Your photo has a <span>color story.</span><br />Let's draw it out!</h1>
+          <a class="hero-action" href="#studio">Try the preview ↓</a>
         </div>
-        <div class="hero-copy">
-          <p>Bring one flower, heart, ring, cake, or balloon. PaletteCard turns its visual character into three considered card directions.</p>
+        <div class="hero-copy hero-art">
+          <div class="paper-doodle" aria-hidden="true"><span>one photo</span><b>→</b><span>three cards!</span></div>
           <div class="privacy-line" id="privacy">
-            <span aria-hidden="true">○</span>
-            <p><strong>Runs on this computer by default.</strong> This browser preview keeps your image in this tab and never uploads it.</p>
+            <span aria-hidden="true">●</span>
+            <p><strong>This page is a browser-only preview.</strong> It keeps your image in this tab. Run the Python app locally to use both trained AI models and download PNGs.</p>
           </div>
         </div>
+      </section>
+
+      <section class="process-trail" id="how-it-works" aria-label="How PaletteCard works">
+        <div><span>1</span><strong>Pick a photo</strong><small>One clear object works best</small></div><i></i>
+        <div><span>2</span><strong>Find its colors</strong><small>Five observed swatches</small></div><i></i>
+        <div><span>3</span><strong>Meet your cards</strong><small>Three playful directions</small></div>
       </section>
 
       <section class="studio" id="studio" aria-label="Card design studio">
         <form class="control-panel" id="studio-form">
           <div class="panel-heading">
             <div>
-              <p class="step-label">01 · Source</p>
-              <h2>Choose one photo</h2>
+              <p class="step-label">Step one</p>
+              <h2>Choose your picture</h2>
             </div>
-            <span class="local-label">Browser preview</span>
+            <span class="local-label">Stays in this tab</span>
           </div>
 
           <label class="dropzone" id="dropzone" for="photo-input" aria-describedby="upload-hint photo-error">
@@ -94,7 +101,7 @@
           </div>
 
           <button class="primary-action" id="generate-button" type="submit" disabled aria-describedby="action-status">
-            <span id="generate-label">Generate 3 cards</span>
+            <span id="generate-label">Draw my 3 cards</span>
             <span aria-hidden="true">↗</span>
           </button>
           <p class="action-note" id="action-status" aria-live="polite">Add a photo to begin. Processing stays in this browser tab.</p>
@@ -103,8 +110,8 @@
         <aside class="story-panel" aria-labelledby="story-title">
           <div class="panel-heading">
             <div>
-              <p class="step-label">02 · Translation</p>
-              <h2 id="story-title">Color story</h2>
+              <p class="step-label">Step two</p>
+              <h2 id="story-title">Watch the color magic</h2>
               <p class="story-helper">Observed in the photo, then translated into design roles.</p>
             </div>
             <span class="story-count" id="story-count">0 / 5</span>
@@ -153,8 +160,8 @@
       <section class="results" id="results" hidden aria-labelledby="results-title">
         <div class="results-heading">
           <div>
-            <p class="eyebrow">03 · Directions</p>
-            <h2 id="results-title">Three directions, ready to explore</h2>
+            <p class="eyebrow">Step three</p>
+            <h2 id="results-title">Ta-da! Three card ideas</h2>
           </div>
           <div class="results-meta">
             <span>Browser preview · no files generated</span>

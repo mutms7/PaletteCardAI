@@ -35,7 +35,7 @@ palette-card-serve = "palette_card.server:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-palette_card = ["assets/*.css", "assets/*.js"]
+palette_card = ["assets/*.css", "assets/*.js", "assets/*.ttf", "assets/*.txt"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

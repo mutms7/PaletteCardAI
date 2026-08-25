@@ -8,6 +8,7 @@ score. After training, restart the app and Auto will use the validated model.
 from __future__ import annotations
 
 import ast
+import base64
 import html
 import json
 import re
@@ -31,28 +32,30 @@ _DEFAULT_MESSAGE = "Made from the colors in your photo."
 _EMPTY_STATE_COPY = "Upload a photo to begin."
 _PRIVACY_COPY = "Runs on this computer by default. Generated PNGs stay in the configured local output folder until you remove them."
 _DEFAULT_STUDIO_THEME = {
-    "canvas": "#f7f4ef",
-    "surface": "#fffdf9",
-    "surface-muted": "#f3eee7",
-    "ink": "#171719",
-    "muted": "#6f6b66",
-    "rule": "#ded8cf",
-    "accent": "#8d1738",
-    "accent-soft": "#ead8d2",
+    "canvas": "#fbf7eb",
+    "surface": "#fffdf7",
+    "surface-muted": "#f3eddf",
+    "ink": "#292531",
+    "muted": "#625b67",
+    "rule": "#3a3440",
+    "accent": "#e64955",
+    "accent-soft": "#ffe4a8",
     "accent-contrast": "#ffffff",
-    "secondary": "#344992",
-    "decorative": "#ead8d2",
-    "photo-accent": "#8d1738",
-    "photo-tint": "#ead8d2",
+    "secondary": "#377fca",
+    "decorative": "#83ce78",
+    "photo-accent": "#e64955",
+    "photo-tint": "#ffe4a8",
 }
 _STUDIO_THEME_KEYS = tuple(_DEFAULT_STUDIO_THEME)
 
 
 def _load_studio_css() -> str:
-    """Load the local editorial stylesheet without making the UI network-bound."""
+    """Load the studio stylesheet and embed its display font for offline use."""
 
     try:
-        return (_ASSET_DIR / "studio.css").read_text(encoding="utf-8")
+        css = (_ASSET_DIR / "studio.css").read_text(encoding="utf-8")
+        font = base64.b64encode((_ASSET_DIR / "Schoolbell-Regular.ttf").read_bytes()).decode("ascii")
+        return css.replace("__SCHOOLBELL_FONT_DATA__", font)
     except OSError:  # pragma: no cover - source checkout always includes the asset
         return ""
 
@@ -515,37 +518,49 @@ def build_app(checkpoint_path: str | Path | None = None, output_dir: str | Path 
             "",
             gr.update(visible=False),
             gr.update(visible=False),
-            gr.update(value="Generate 3 cards", interactive=False),
+            gr.update(value="Draw my 3 cards →", interactive=False),
             gr.update(visible=True),
             _theme_payload_html(),
         )
 
     def mark_loading():
-        return gr.update(value="Finding the color story…", interactive=False)
+        return gr.update(value="Mixing your colors…", interactive=False)
 
     def mark_ready():
-        return gr.update(value="Generate 3 cards", interactive=True)
+        return gr.update(value="Draw my 3 cards →", interactive=True)
 
     with gr.Blocks(title="PaletteCard AI") as demo:
         gr.HTML(
-            "<header class='pc-header'><a class='pc-wordmark' href='#top' aria-label='PaletteCard AI home'>PaletteCard <span>AI</span></a>"
-            "<div class='pc-header-meta'><span class='pc-local-badge'>Local by default</span>"
-            "<a href='#pc-privacy'>Privacy</a></div></header>"
+            "<header class='pc-header'><a class='pc-wordmark' href='#top' aria-label='PaletteCard AI home'>"
+            "<span class='pc-logo-scribble' aria-hidden='true'>✦</span> PaletteCard <em>AI</em></a>"
+            "<nav class='pc-nav' aria-label='Main navigation'><a href='#pc-create'>Create</a>"
+            "<a href='#pc-how'>How it works</a><a href='#pc-model'>The models</a></nav>"
+            "<div class='pc-header-meta'><span class='pc-local-badge'>● Local &amp; private</span></div></header>"
         )
         gr.HTML(
             "<main id='top' class='pc-main'><section class='pc-hero' aria-labelledby='pc-hero-title'>"
-            "<p class='pc-eyebrow'>A small color studio</p>"
-            "<h1 id='pc-hero-title'>Make a color story from one photo.</h1>"
-            "<p class='pc-hero-copy'>One centered object becomes a considered color story and three greeting-card directions.</p>"
+            "<div class='pc-hero-copy-wrap'><p class='pc-eyebrow'>A small color studio — made with real AI</p>"
+            "<h1 id='pc-hero-title'>Your photo has a <span>color story.</span><br>Let's draw it out!</h1>"
+            "<p class='pc-hero-copy'>Upload one favorite thing. PaletteCard recognizes it, learns its colors, and turns them into three downloadable greeting cards.</p>"
+            "<a class='pc-jump-link' href='#pc-create'>Make a card <span aria-hidden='true'>↓</span></a></div>"
+            "<div class='pc-hero-art' aria-hidden='true'><span class='pc-sun'>☀</span><span class='pc-flower'>✿</span>"
+            "<div class='pc-paper-card'><span>one photo</span><b>→</b><span>three cards!</span></div>"
+            "<span class='pc-pencil'>✎</span></div>"
             "</section></main>"
         )
+        gr.HTML(
+            "<section id='pc-how' class='pc-trail' aria-label='How PaletteCard works'>"
+            "<div><span class='pc-trail-dot pc-dot-coral'>1</span><strong>Pick a photo</strong><small>Flower, heart, ring, cake, or balloon</small></div>"
+            "<i aria-hidden='true'></i><div><span class='pc-trail-dot pc-dot-blue'>2</span><strong>AI finds its story</strong><small>Object + five observed colors</small></div>"
+            "<i aria-hidden='true'></i><div><span class='pc-trail-dot pc-dot-green'>3</span><strong>Keep your cards</strong><small>Three full-size PNG designs</small></div></section>"
+        )
         with gr.Row(elem_classes=["pc-mode-row"]):
-            gr.HTML(f"<div class='pc-mode-badge' role='status'><strong>{html.escape(_mode_badge(predictor))}</strong><span>{html.escape(mode_message)}</span></div>")
-            gr.HTML(f"<div class='pc-palette-mode'><span>{html.escape(palette_mode_message)}</span></div>")
+            gr.HTML(f"<div id='pc-model' class='pc-mode-badge' role='status'><span class='pc-model-icon' aria-hidden='true'>✦</span><div><strong>{html.escape(_mode_badge(predictor))}</strong><span>{html.escape(mode_message)}</span></div></div>")
+            gr.HTML(f"<div class='pc-palette-mode'><span class='pc-model-icon' aria-hidden='true'>●</span><div><strong>Color model ready</strong><span>{html.escape(palette_mode_message)}</span></div></div>")
 
-        with gr.Row(elem_classes=["pc-studio-grid"]):
+        with gr.Row(elem_id="pc-create", elem_classes=["pc-studio-grid"]):
             with gr.Column(scale=5, elem_classes=["pc-input-rail"]):
-                gr.Markdown("### Start with the source", elem_classes=["pc-section-kicker"])
+                gr.Markdown("### 1. Choose your picture", elem_classes=["pc-section-kicker"])
                 image = gr.Image(
                     type="pil",
                     sources=["upload", "webcam", "clipboard"],
@@ -555,7 +570,7 @@ def build_app(checkpoint_path: str | Path | None = None, output_dir: str | Path 
                     elem_classes=["pc-image-input"],
                 )
                 gr.Markdown("Flower, heart, ring, cake, or balloon · JPG, PNG, or WebP", elem_classes=["pc-upload-hint"])
-                gr.Markdown("Your photo is the source of the story. The interface stays quiet so the colors can lead.", elem_classes=["pc-source-note"])
+                gr.Markdown("Tip: a bright, centered subject with a simple background works best.", elem_classes=["pc-source-note"])
                 object_choice = gr.Dropdown(
                     ["Auto", *CLASS_NAMES],
                     value="Auto",
@@ -566,29 +581,29 @@ def build_app(checkpoint_path: str | Path | None = None, output_dir: str | Path 
                 with gr.Row(elem_classes=["pc-copy-row"]):
                     title = gr.Textbox(value=_DEFAULT_TITLE, label="Card title", elem_id="pc-title")
                     message = gr.Textbox(value=_DEFAULT_MESSAGE, label="Card message", lines=3, elem_id="pc-message")
-                generate = gr.Button("Generate 3 cards", variant="primary", size="lg", interactive=False, elem_id="pc-generate", elem_classes=["pc-cta"])
+                generate = gr.Button("Draw my 3 cards →", variant="primary", size="lg", interactive=False, elem_id="pc-generate", elem_classes=["pc-cta"])
                 gr.Markdown("Processing stays on this computer. No network request is needed to make the cards.", elem_classes=["pc-local-note"])
 
             with gr.Column(scale=4, elem_classes=["pc-source-rail"]):
                 gr.HTML(
-                    "<div class='pc-source-rail-heading'><p class='pc-section-kicker'>The color lab</p>"
-                    "<h2>Photo in. Color story out.</h2>"
-                    "<p>Start with one clear subject. We observe five colors, then turn them into readable roles for three distinct layouts.</p></div>"
+                    "<div class='pc-source-rail-heading'><p class='pc-section-kicker'>2. Watch the color magic</p>"
+                    "<h2>Your palette will pop up here!</h2>"
+                    "<p>The AI looks for the object, observes five colors, then gives each one a useful job without sacrificing readability.</p></div>"
                 )
                 empty_state = gr.Markdown(_EMPTY_STATE_COPY, elem_id="pc-empty-state", elem_classes=["pc-empty-state"])
                 gr.HTML(
-                    "<div class='pc-empty-example'><span aria-hidden='true'>↗</span> Drop a photo of one centered object above to see the studio come alive.</div>",
+                    "<div class='pc-empty-example'><span aria-hidden='true'>↖</span> Add a photo and this blank page becomes your color story.</div>",
                     elem_classes=["pc-empty-example"],
                 )
                 gr.HTML(
-                    "<div class='pc-source-contract'><span class='pc-contract-number'>01</span><div><strong>Observed colors</strong><p>Five colors from the photo, with their relative presence.</p></div></div>"
-                    "<div class='pc-source-contract'><span class='pc-contract-number'>02</span><div><strong>Derived roles</strong><p>Neutral surfaces, restrained accents, and safe text pairings.</p></div></div>",
+                    "<div class='pc-source-contract'><span class='pc-contract-number'>✿</span><div><strong>Colors we spot</strong><p>Five colors from the photo and how much each one appears.</p></div></div>"
+                    "<div class='pc-source-contract'><span class='pc-contract-number'>✎</span><div><strong>Colors we design with</strong><p>Calm backgrounds, joyful accents, and easy-to-read words.</p></div></div>",
                     elem_classes=["pc-contract-list"],
                 )
 
         with gr.Column(visible=False, elem_id="pc-results", elem_classes=["pc-results"] ) as result_panel:
             with gr.Row(elem_classes=["pc-results-heading"]):
-                gr.Markdown("## Three directions, ready to download")
+                gr.Markdown("## 3. Ta-da! Your cards are ready")
                 start_over = gr.Button("Start over", variant="secondary", size="sm", visible=False, elem_id="pc-start-over")
             gallery = gr.Gallery(
                 label="Three directions, ready to download",
@@ -612,8 +627,8 @@ def build_app(checkpoint_path: str | Path | None = None, output_dir: str | Path 
             )
 
         gr.HTML(
-            f"<footer id='pc-privacy' class='pc-footer'><p><strong>Local by default.</strong> {html.escape(_PRIVACY_COPY)}</p>"
-            "<p>Using <code>--share</code> creates a public link. Do not use it for sensitive images.</p></footer>"
+            f"<footer id='pc-privacy' class='pc-footer'><div><strong>PaletteCard AI</strong><span>Made with pixels, pencils, and two tiny neural networks.</span></div>"
+            f"<p><strong>Private by default.</strong> {html.escape(_PRIVACY_COPY)} Using <code>--share</code> creates a public link.</p></footer>"
         )
 
         image.change(

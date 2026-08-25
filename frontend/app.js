@@ -191,7 +191,7 @@ function resetPhoto({ errorMessage = "" } = {}) {
   sourcePlaceholder.hidden = false;
   generateButton.disabled = true;
   generateButton.setAttribute("aria-busy", "false");
-  generateLabel.textContent = "Generate 3 cards";
+  generateLabel.textContent = "Draw my 3 cards";
   results.hidden = true;
   photoError.textContent = errorMessage;
   updateState(errorMessage ? "invalid" : "empty", errorMessage || "Add a photo to begin. Processing stays in this browser tab.");
@@ -269,8 +269,8 @@ form.addEventListener("submit", (event) => {
   isGenerating = true;
   generateButton.disabled = true;
   generateButton.setAttribute("aria-busy", "true");
-  generateLabel.textContent = "Finding the color story…";
-  updateState("loading", "Finding the color story… This stays in your browser tab.");
+  generateLabel.textContent = "Mixing your colors…";
+  updateState("loading", "Mixing your colors… This stays in your browser tab.");
   generationTimer = window.setTimeout(() => {
     try {
       results.hidden = false;
@@ -281,7 +281,7 @@ form.addEventListener("submit", (event) => {
       results.hidden = true;
       updateState("error", "We couldn’t create the cards. Check that an image is uploaded, then try again.");
     }
-    generateLabel.textContent = "Generate 3 cards";
+    generateLabel.textContent = "Draw my 3 cards";
     generateButton.disabled = false;
     generateButton.setAttribute("aria-busy", "false");
     isGenerating = false;

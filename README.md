@@ -1,4 +1,4 @@
-# PaletteCard AI
+# PaletteCard AI ✏️
 
 > **Turn one photo into a color-smart greeting card.**
 
@@ -7,12 +7,54 @@ photo's colors, and turns them into three downloadable card designs. I built it
 because I wanted to learn what “training an AI” actually means, then make the
 result useful instead of stopping at a notebook and an accuracy number.
 
-🌐 **Live app:** [palettecardai.vercel.app](https://palettecardai.vercel.app/)
+🌐 **Live preview:** [palettecardai.vercel.app](https://palettecardai.vercel.app/)
 
-The current public deployment is a **frontend-only preview**: it loads
-instantly, keeps selected images inside the browser tab, and does not load or
-call either trained model. The Python/PyTorch project remains here for local
-training and for a future inference backend.
+The public Vercel deployment is a **frontend-only preview**: it loads instantly,
+keeps selected images inside the browser tab, and does not load or call either
+trained model. Run the Python app locally to use the real classifier, learned
+palette model, high-resolution renderer, and PNG downloads. The preview says
+this directly in the interface so browser sampling is never presented as model
+inference.
+
+## Model integration status
+
+Both custom models are integrated into the local application and were verified
+end to end on August 24, 2026. They are committed under
+`artifacts/checkpoints/` and loaded by `build_app()` at startup.
+
+| Stage | Checkpoint | Verified result |
+| --- | --- | --- |
+| Object recognition | `best.pt` · MobileNetV3 Small · epoch 8 | Loaded with the expected five-class order and 224 px input; stored validation accuracy is 92.9% |
+| Palette role selection | `palette.pt` · `palette_mlp_v1` · epoch 60 | Loaded with its 20-value input and 6-value output contract; stored validation loss is 0.0312 |
+| Full app pipeline | Both models + local flower photo | Predicted `flower` at 97.0%, produced five observed colors and guarded design roles, then wrote three valid PNG cards |
+
+The app exposes the same distinction at runtime:
+
+- **Model Mode** means the object checkpoint loaded and Auto classification is enabled.
+- **Color model ready** means learned role selection loaded. OKLCH gamut,
+  restraint, and WCAG contrast guardrails still validate its output.
+- **Demo Mode** is an explicit fallback when a checkpoint is missing or invalid;
+  it never invents confidence.
+
+The model readiness flags also feed `/readyz` in the hardened FastAPI service.
+Production can require both with `PALETTECARD_REQUIRE_MODELS=true`.
+
+## The new studio
+
+The interface now follows a playful three-stage flow: **pick a photo → let the
+AI find its color story → download three cards**. Its craft-table visual system
+uses hand-drawn outlines, paper panels, tape and pencil motifs, bright crayon
+accents, and the readable Schoolbell display font. Schoolbell is vendored under
+its Apache 2.0 license, so the local studio does not need a font request.
+
+The redesign includes:
+
+- clear navigation and a real process trail instead of one dense form;
+- visible status for both trained models before a photo is submitted;
+- photo-derived theme colors after generation;
+- responsive layouts for desktop, tablet, and mobile;
+- keyboard focus states and reduced-motion support;
+- matching visual language across the real Gradio app and static Vercel preview.
 
 The important design choice is that the app does **not** paint the whole card
 with the exact colors it finds. A photo full of bright red, blue, and green
@@ -84,8 +126,8 @@ pip install -e ".[dev]"
 python app.py
 ```
 
-Open the local URL printed by Gradio. Both trained checkpoints are included in
-the published app. If they are missing, PaletteCard falls back honestly to
+Open `http://127.0.0.1:7860` (or the local URL printed by Gradio). Both trained
+checkpoints are included in the repository. If they are missing, PaletteCard falls back honestly to
 Demo Mode: you select the object yourself and the app does not invent a model
 confidence.
 
@@ -141,6 +183,7 @@ src/palette_card/palette_model.py  learned palette-role model
 src/palette_card/design.py     OKLCH/Oklab design rules and guardrails
 src/palette_card/card.py       three Pillow card renderers
 src/palette_card/app.py        Gradio interface and end-to-end pipeline
+src/palette_card/assets/       craft-table UI, licensed font, and theme bridge
 src/palette_card/server.py     hardened ASGI service and health endpoints
 src/palette_card/training.py   training, validation, metrics, and evaluation
 scripts/                       dataset, training, and review commands
@@ -178,13 +221,22 @@ privacy notice are still real launch requirements.
 Python · PyTorch · torchvision · MobileNetV3 · Pillow · NumPy · scikit-learn ·
 Gradio · FastAPI · pytest · GitHub Actions · Vercel
 
-## Checks
+## Verification
 
 ```bash
 python -m compileall -q src
 python -m pytest -q
 python -m pip check
 ```
+
+The current suite contains 68 unit, integration, runtime, server, design, and
+end-to-end tests. For a production-style readiness check, start
+`palette-card-serve` and request `/readyz`; it returns HTTP 200 only when the
+configured model policy is satisfied.
+
+The August 24, 2026 redesign was also checked in the running application at a
+desktop viewport and at 390 × 844 mobile size. A local flower image was used as
+the end-to-end smoke-test input and was not added to the repository.
 
 The source code is available under the [MIT License](LICENSE). That license
 does not grant rights to third-party training images or replace their original

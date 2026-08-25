@@ -34,11 +34,12 @@ def test_studio_copy_and_states_are_present(tmp_path: Path):
 
     assert _mode_badge(None) == "Demo Mode · choose the object yourself."
     assert "A small color studio" in rendered_copy
-    assert "Make a color story from one photo." in rendered_copy
+    assert "Your photo has a" in rendered_copy
+    assert "Let's draw it out!" in rendered_copy
     assert "Drop a photo of one centered object" in rendered_copy
     assert "Flower, heart, ring, cake, or balloon · JPG, PNG, or WebP" in rendered_copy
     assert "How should we identify it?" in rendered_copy
-    assert "Three directions, ready to download" in rendered_copy
+    assert "Ta-da! Your cards are ready" in rendered_copy
     assert "Download all 3 PNGs" in rendered_copy
     assert "Color story" in rendered_copy
     assert "Runs on this computer by default." in rendered_copy
@@ -46,14 +47,16 @@ def test_studio_copy_and_states_are_present(tmp_path: Path):
     assert components["pc-generate"]["interactive"] is False
     assert components["pc-empty-state"]["visible"] is True
     assert components["pc-results"]["visible"] is False
-    assert "@media (prefers-reduced-motion: reduce)" in demo._palette_card_css
-    assert "@media (max-width: 520px)" in demo._palette_card_css
-    assert "width: 100% !important" in demo._palette_card_css
-    assert "min-width: 0 !important" in demo._palette_card_css
-    assert "padding: 0 clamp(16px, 2.5vw, 32px)" in demo._palette_card_css
+    assert "@media (prefers-reduced-motion:reduce)" in demo._palette_card_css
+    assert "@media (max-width:520px)" in demo._palette_card_css
+    assert "width:100%!important" in demo._palette_card_css
+    assert "min-width:0!important" in demo._palette_card_css
+    assert "Schoolbell" in demo._palette_card_css
+    assert "data:font/ttf;base64," in demo._palette_card_css
+    assert "pc-trail" in rendered_copy
     assert ".pc-gallery .grid-wrap" in demo._palette_card_css
     assert ".pc-gallery .grid-container" in demo._palette_card_css
-    assert "repeat(3, minmax(180px, 1fr))" in demo._palette_card_css
+    assert "repeat(3,minmax(180px,1fr))" in demo._palette_card_css
     assert "pc-theme-payload" in rendered_copy
     assert "MutationObserver" in demo._palette_card_js
     assert "prefers-reduced-motion" in demo._palette_card_js
