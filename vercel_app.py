@@ -20,6 +20,7 @@ os.environ.setdefault(
 )
 os.environ.setdefault("PALETTECARD_REQUIRE_MODELS", "true")
 os.environ.setdefault("GRADIO_ANALYTICS_ENABLED", "False")
+os.environ.setdefault("PALETTECARD_MOUNT_GRADIO", "false")
 
 from palette_card.server import create_production_app  # noqa: E402
 

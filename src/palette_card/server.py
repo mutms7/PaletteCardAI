@@ -2,12 +2,19 @@
 
 from __future__ import annotations
 
+import base64
 import hashlib
+import io
 import logging
 import os
 from pathlib import Path
+import re
 
-from .app import build_app
+from fastapi import UploadFile
+from PIL import Image
+
+from .app import _roles_from_status, analyze_image, build_app, load_palette_predictor, load_predictor
+from .config import CLASS_NAMES
 from .runtime import ProductionSettings, cleanup_generated_cards, utc_timestamp
 
 LOGGER = logging.getLogger("palette_card.server")
@@ -23,27 +30,87 @@ def _sha256(path: Path) -> str | None:
     return digest.hexdigest()
 
 
+def _encode_web_cards(gallery, max_binary_bytes: int = 2_800_000) -> list[dict[str, str]]:
+    """Encode three cards inline so serverless instances need no shared disk.
+
+    Vercel limits both request and response payloads to 4.5 MB. Base64 adds
+    roughly one third, so the binary budget stays deliberately below 3 MB.
+    """
+
+    cards = [item[0] if isinstance(item, tuple) else item for item in gallery]
+    attempts = ((1600, 88), (1600, 80), (1280, 80), (1120, 74))
+    encoded: list[bytes] = []
+    for width, quality in attempts:
+        encoded = []
+        for card in cards:
+            candidate = card.convert("RGB")
+            if candidate.width > width:
+                height = round(candidate.height * width / candidate.width)
+                candidate = candidate.resize((width, height), Image.Resampling.LANCZOS)
+            buffer = io.BytesIO()
+            candidate.save(buffer, format="JPEG", quality=quality, optimize=True, progressive=True)
+            encoded.append(buffer.getvalue())
+        if sum(map(len, encoded)) <= max_binary_bytes:
+            break
+    if sum(map(len, encoded)) > max_binary_bytes:
+        raise ValueError("Generated cards are too large for the web response. Try a simpler or smaller photo.")
+    return [
+        {
+            "filename": f"palette-card-{index}.jpg",
+            "media_type": "image/jpeg",
+            "data_url": "data:image/jpeg;base64," + base64.b64encode(payload).decode("ascii"),
+        }
+        for index, payload in enumerate(encoded, 1)
+    ]
+
+
+def _public_status(status: str) -> dict[str, object]:
+    lines = status.splitlines()
+    recognition = next((line for line in lines if line.startswith("Object: ")), "Object: unavailable")
+    palette_line = next((line for line in lines if line.startswith("Palette: ")), "")
+    source_colors = re.findall(r"#[0-9A-Fa-f]{6}", palette_line.split("[Source", 1)[0])[:5]
+    roles = _roles_from_status(status) or {}
+    return {
+        "recognition": recognition,
+        "source_colors": [color.upper() for color in source_colors],
+        "design_roles": roles,
+        "details": status,
+    }
+
+
 def create_production_app(settings: ProductionSettings | None = None):
     os.environ.setdefault("GRADIO_ANALYTICS_ENABLED", "False")
     import gradio as gr
-    from fastapi import FastAPI, Request
+    from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
     from fastapi.middleware.trustedhost import TrustedHostMiddleware
-    from fastapi.responses import JSONResponse
+    from fastapi.responses import FileResponse, JSONResponse
+    from fastapi.staticfiles import StaticFiles
+    from starlette.concurrency import run_in_threadpool
 
     configured = settings or ProductionSettings.from_env()
     configured.output_dir.mkdir(parents=True, exist_ok=True)
     cleanup_generated_cards(configured.output_dir, configured.retention_hours)
-    blocks = build_app(
-        configured.checkpoint,
-        configured.output_dir,
-        configured.palette_checkpoint,
-        max_pixels=configured.max_pixels,
-        retention_hours=configured.retention_hours,
-        concurrency=configured.concurrency,
-        queue_size=configured.queue_size,
-    )
-    object_ready = bool(blocks._palette_card_object_model_ready)
-    palette_ready = bool(blocks._palette_card_palette_model_ready)
+    mount_gradio = os.environ.get("PALETTECARD_MOUNT_GRADIO", "true").strip().lower() not in {"0", "false", "no", "off"}
+    blocks = None
+    if mount_gradio:
+        blocks = build_app(
+            configured.checkpoint,
+            configured.output_dir,
+            configured.palette_checkpoint,
+            max_pixels=configured.max_pixels,
+            retention_hours=configured.retention_hours,
+            concurrency=configured.concurrency,
+            queue_size=configured.queue_size,
+        )
+        predictor = blocks._palette_card_predictor
+        palette_predictor = blocks._palette_card_palette_predictor
+        mode_message = blocks._palette_card_mode_message
+        palette_mode_message = blocks._palette_card_palette_mode_message
+    else:
+        predictor, mode_message = load_predictor(configured.checkpoint)
+        palette_predictor, palette_mode_message = load_palette_predictor(configured.palette_checkpoint)
+    object_ready = predictor is not None
+    palette_ready = palette_predictor is not None
     started_at = utc_timestamp()
     app = FastAPI(
         title="PaletteCard AI",
@@ -83,18 +150,84 @@ def create_production_app(settings: ProductionSettings | None = None):
         }
         return JSONResponse(payload, status_code=200 if ready_now else 503)
 
-    auth = (configured.username, configured.password) if configured.username and configured.password else None
-    app = gr.mount_gradio_app(
-        app,
-        blocks,
-        path="/",
-        allowed_paths=[str(configured.output_dir)],
-        auth=auth,
-        show_error=False,
-        max_file_size=f"{configured.max_upload_mb}mb",
-        enable_monitoring=False,
-        footer_links=[],
-    )
+    frontend_dir = Path(__file__).resolve().parents[2] / "frontend"
+    if frontend_dir.is_dir():
+        app.mount("/frontend", StaticFiles(directory=frontend_dir), name="frontend")
+
+        @app.get("/", include_in_schema=False)
+        async def frontend():
+            return FileResponse(frontend_dir / "index.html")
+
+    @app.post("/api/generate", include_in_schema=False)
+    async def generate(
+        file: UploadFile = File(...),
+        object_choice: str = Form("Auto"),
+        title: str = Form("A little color for you"),
+        message: str = Form("Made from the colors in your photo."),
+    ):
+        if not object_ready or not palette_ready:
+            raise HTTPException(status_code=503, detail="Both AI models must be ready before cards can be generated.")
+        if file.content_type not in {"image/jpeg", "image/png", "image/webp"}:
+            raise HTTPException(status_code=415, detail="Choose a JPG, PNG, or WebP image.")
+        limit = configured.max_upload_mb * 1024 * 1024
+        payload = await file.read(limit + 1)
+        if not payload or len(payload) > limit:
+            raise HTTPException(status_code=413, detail=f"Choose an image smaller than {configured.max_upload_mb} MB.")
+        requested_choice = object_choice.strip().lower()
+        normalized_choice = "Auto" if requested_choice == "auto" else requested_choice
+        if normalized_choice != "Auto" and normalized_choice not in CLASS_NAMES:
+            raise HTTPException(status_code=422, detail="Object choice is not supported.")
+        if len(title) > 64 or len(message) > 160:
+            raise HTTPException(status_code=422, detail="Card copy is too long.")
+        try:
+            image = Image.open(io.BytesIO(payload))
+            image.load()
+            image = image.convert("RGB")
+            gallery, paths, status = await run_in_threadpool(
+                lambda: analyze_image(
+                    image,
+                    normalized_choice,
+                    title.strip() or "A little color for you",
+                    message.strip() or "Made from the colors in your photo.",
+                    predictor,
+                    mode_message,
+                    configured.output_dir,
+                    palette_predictor,
+                    palette_mode_message,
+                    configured.max_pixels,
+                    configured.retention_hours,
+                )
+            )
+            cards = await run_in_threadpool(_encode_web_cards, gallery)
+            public_status = _public_status(status)
+        except (OSError, ValueError) as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        finally:
+            if "paths" in locals():
+                for generated in paths:
+                    Path(generated).unlink(missing_ok=True)
+        return {
+            "status": "ready",
+            "model_mode": True,
+            "cards": cards,
+            **public_status,
+        }
+
+    if blocks is not None:
+        auth = (configured.username, configured.password) if configured.username and configured.password else None
+        app = gr.mount_gradio_app(
+            app,
+            blocks,
+            path="/studio",
+            allowed_paths=[str(configured.output_dir)],
+            auth=auth,
+            show_error=False,
+            max_file_size=f"{configured.max_upload_mb}mb",
+            enable_monitoring=False,
+            footer_links=[],
+            css=blocks._palette_card_css,
+            js=blocks._palette_card_js,
+        )
     app.state.palette_card_settings = configured
     return app
 

@@ -7,26 +7,25 @@ photo's colors, and turns them into three downloadable card designs. I built it
 because I wanted to learn what “training an AI” actually means, then make the
 result useful instead of stopping at a notebook and an accuracy number.
 
-🌐 **Live preview:** [palettecardai.vercel.app](https://palettecardai.vercel.app/)
+🌐 **Live working prototype:** [palettecardai.vercel.app](https://palettecardai.vercel.app/)
 
-The public Vercel deployment is a **frontend-only preview**: it loads instantly,
-keeps selected images inside the browser tab, and does not load or call either
-trained model. Run the Python app locally to use the real classifier, learned
-palette model, high-resolution renderer, and PNG downloads. The preview says
-this directly in the interface so browser sampling is never presented as model
-inference.
+The public Vercel deployment runs the committed object classifier and learned
+palette model through a FastAPI endpoint. Upload a photo, leave recognition on
+Auto or correct it manually, generate three real card renders, and download all
+three from the browser. The response carries the generated cards inline so it
+does not depend on temporary files surviving across serverless instances.
 
 ## Model integration status
 
-Both custom models are integrated into the local application and were verified
-end to end on August 24, 2026. They are committed under
-`artifacts/checkpoints/` and loaded by `build_app()` at startup.
+Both custom models are integrated into the local and deployed applications and
+were verified end to end on August 24, 2026. They are committed under
+`artifacts/checkpoints/` and loaded at application startup.
 
 | Stage | Checkpoint | Verified result |
 | --- | --- | --- |
 | Object recognition | `best.pt` · MobileNetV3 Small · epoch 8 | Loaded with the expected five-class order and 224 px input; stored validation accuracy is 92.9% |
 | Palette role selection | `palette.pt` · `palette_mlp_v1` · epoch 60 | Loaded with its 20-value input and 6-value output contract; stored validation loss is 0.0312 |
-| Full app pipeline | Both models + local flower photo | Predicted `flower` at 97.0%, produced five observed colors and guarded design roles, then wrote three valid PNG cards |
+| Full app pipeline | Both models + flower photo | Predicted `flower` at 97.0%, produced five observed colors and guarded design roles, then rendered three downloadable cards |
 
 The app exposes the same distinction at runtime:
 
@@ -54,7 +53,7 @@ The redesign includes:
 - photo-derived theme colors after generation;
 - responsive layouts for desktop, tablet, and mobile;
 - keyboard focus states and reduced-motion support;
-- matching visual language across the real Gradio app and static Vercel preview.
+- one consistent visual language across the public FastAPI studio and local Gradio app.
 
 The important design choice is that the app does **not** paint the whole card
 with the exact colors it finds. A photo full of bright red, blue, and green
@@ -72,8 +71,9 @@ from design colors so the image stays the focus.
 4. **Design a palette.** A second neural network proposes background,
    secondary, and accent roles. An OKLCH/Oklab color-theory layer then keeps
    large areas calm, preserves contrast, and checks WCAG readability.
-5. **Make the cards.** Three layouts are rendered as high-resolution PNGs for
-   preview and download.
+5. **Make the cards.** Three layouts are rendered at high resolution. The local
+   app saves PNGs; the serverless web app returns optimized JPEG downloads to
+   stay comfortably within its response limit.
 
 ## What I actually trained
 
@@ -175,8 +175,9 @@ review receipts, and the optional Wikimedia acquisition workflow.
 ## Architecture
 
 ```text
-app.py                         beginner-friendly local launcher
-vercel_app.py                  FastAPI/Gradio entry point for Vercel
+app.py                         beginner-friendly local Gradio launcher
+vercel_app.py                  FastAPI entry point for Vercel
+frontend/                      public craft-table studio
 src/palette_card/model.py      MobileNet checkpoint loading and inference
 src/palette_card/palette.py    source-color extraction and contrast checks
 src/palette_card/palette_model.py  learned palette-role model
@@ -184,7 +185,7 @@ src/palette_card/design.py     OKLCH/Oklab design rules and guardrails
 src/palette_card/card.py       three Pillow card renderers
 src/palette_card/app.py        Gradio interface and end-to-end pipeline
 src/palette_card/assets/       craft-table UI, licensed font, and theme bridge
-src/palette_card/server.py     hardened ASGI service and health endpoints
+src/palette_card/server.py     ASGI UI, AI API, readiness, and security headers
 src/palette_card/training.py   training, validation, metrics, and evaluation
 scripts/                       dataset, training, and review commands
 tests/                         unit, integration, and end-to-end tests
@@ -192,12 +193,18 @@ tests/                         unit, integration, and end-to-end tests
 
 ## Production and deployment
 
-Vercel currently serves the static files in `frontend/`; there is no Python
-installation, AI bundle, image upload, or function cold start in the public
-preview. `vercel.json` deliberately selects the static folder and adds basic
-browser security headers. The trained application still runs locally through
-`python app.py`, and `vercel_app.py` remains available as a future FastAPI
-entry point when an inference backend is wanted again.
+Vercel runs `vercel_app.py` as one FastAPI Function. The root route serves the
+studio, `/readyz` validates both checkpoint hashes, and `/api/generate` accepts
+one bounded image upload and returns three inline card renders. This avoids the
+cross-instance `/tmp` download failure that occurs when a serverless Gradio
+response points to a temporary file on one function instance and the follow-up
+request lands on another.
+
+The web endpoint accepts JPG, PNG, and WebP files up to 4 MB in the browser and
+compresses its three outputs below a 2.8 MB binary budget. Vercel's request and
+response hard limit is 4.5 MB. Local/container Gradio remains available for
+full PNG output and can be mounted at `/studio` by leaving
+`PALETTECARD_MOUNT_GRADIO=true`.
 
 ```bash
 vercel
@@ -211,10 +218,10 @@ docker build -t palettecard-ai .
 docker run --rm -p 7860:7860 --env-file .env palettecard-ai
 ```
 
-Read [the production runbook](docs/PRODUCTION.md) before reconnecting the AI or
-treating this as a public or commercial service. Durable file storage, dataset
-clearance, a larger evaluation set, monitoring, abuse controls, and a published
-privacy notice are still real launch requirements.
+Read [the production runbook](docs/PRODUCTION.md) before treating this prototype
+as a public or commercial product. Dataset clearance, a larger evaluation set,
+monitoring, abuse controls, and a published privacy notice are still real launch
+requirements.
 
 ## Tech stack
 
@@ -229,7 +236,7 @@ python -m pytest -q
 python -m pip check
 ```
 
-The current suite contains 68 unit, integration, runtime, server, design, and
+The current suite contains 69 unit, integration, runtime, server, design, and
 end-to-end tests. For a production-style readiness check, start
 `palette-card-serve` and request `/readyz`; it returns HTTP 200 only when the
 configured model policy is satisfied.

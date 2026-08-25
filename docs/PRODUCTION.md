@@ -67,28 +67,31 @@ horizontal scaling.
 
 ## Vercel
 
-The current `palettecardai.vercel.app` production site is intentionally a
-static frontend preview configured by `vercel.json`. It does not install
-Python, load checkpoints, upload images, or invoke the ASGI app. Images selected
-in that preview stay within the browser tab.
+`palettecardai.vercel.app` is an AI-backed working prototype. `vercel_app.py`
+loads both checkpoints into a FastAPI Function, serves the craft-table frontend
+at `/`, reports checkpoint readiness at `/readyz`, and accepts generation
+requests at `/api/generate`.
 
-The notes below describe the optional future AI-backed deployment.
+The public endpoint returns optimized card JPEGs inline in the generation
+response. Do not change it back to temporary Gradio file URLs: Vercel may send a
+follow-up download request to a different function instance, where the original
+instance's `/tmp` file does not exist. Local and container launches retain the
+Gradio workflow and full-size PNG downloads.
 
-`vercel_app.py` exposes the hardened FastAPI/Gradio application as a Vercel
-Python Function. New Vercel projects use Fluid Compute and can place large AI
-dependencies on the large-function path. The deployment keeps generated cards
-under `/tmp/palettecard-cards` because the function bundle is read-only.
+The browser limits uploads to 4 MB and the endpoint budgets generated binary
+output to 2.8 MB so the base64 JSON response remains below Vercel's 4.5 MB
+request/response limit. `PALETTECARD_MOUNT_GRADIO=false` avoids constructing the
+unused Gradio tree during Vercel cold starts.
 
 Deploy from the repository root:
 
     vercel
     vercel --prod
 
-Vercel instances do not share or durably retain `/tmp`. A card download will
-normally work during the active session, but durable cross-instance downloads
-require an object-storage adapter. The current app does not rely on WebSockets;
-if a future Gradio upgrade introduces that requirement, Vercel Functions do
-not provide a WebSocket server and the UI must be retested or moved.
+Vercel instances do not share or durably retain `/tmp`. The API removes its
+intermediate PNGs after encoding the response and does not deliberately retain
+the uploaded original. Durable server-side galleries or later retrieval would
+require object storage. The current public UI does not require WebSockets.
 
 ## Edge and hosting requirements
 

@@ -1,6 +1,6 @@
 const DEFAULT_PALETTE = ["#f7f3ed", "#8d1738", "#c79a50", "#ead8d2", "#3e3034"];
 const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
-const MAX_FILE_SIZE = 12 * 1024 * 1024;
+const MAX_FILE_SIZE = 4 * 1024 * 1024;
 
 const fileInput = document.querySelector("#photo-input");
 const dropzone = document.querySelector("#dropzone");
@@ -26,11 +26,16 @@ const paletteBars = [...document.querySelectorAll(".palette-bar span")];
 const miniSwatches = [...document.querySelectorAll(".mini-swatches span")];
 const cardImages = [...document.querySelectorAll(".card-source-image")];
 const modeStatus = document.querySelector("#mode-status");
+const modelBadge = document.querySelector("#model-badge");
+const cardPreviews = [...document.querySelectorAll(".card-preview")];
+const downloadLinks = [...document.querySelectorAll(".download-card")];
 
 let currentUrl = null;
+let currentFile = null;
 let currentPalette = [...DEFAULT_PALETTE];
 let generationTimer = null;
 let isGenerating = false;
+let modelsReady = false;
 
 function clamp(value, minimum, maximum) {
   return Math.min(maximum, Math.max(minimum, value));
@@ -181,10 +186,20 @@ function resetPhoto({ errorMessage = "" } = {}) {
   isGenerating = false;
   if (currentUrl) URL.revokeObjectURL(currentUrl);
   currentUrl = null;
+  currentFile = null;
   fileInput.value = "";
   sourceImage.removeAttribute("src");
   storyImage.removeAttribute("src");
   cardImages.forEach((image) => image.removeAttribute("src"));
+  cardPreviews.forEach((preview) => {
+    preview.classList.remove("has-generated");
+    preview.querySelector(".generated-card-image")?.remove();
+  });
+  downloadLinks.forEach((link) => {
+    link.hidden = true;
+    link.removeAttribute("href");
+    link.removeAttribute("download");
+  });
   uploadEmpty.hidden = false;
   uploadPreview.hidden = true;
   storyImage.hidden = true;
@@ -194,7 +209,7 @@ function resetPhoto({ errorMessage = "" } = {}) {
   generateLabel.textContent = "Draw my 3 cards";
   results.hidden = true;
   photoError.textContent = errorMessage;
-  updateState(errorMessage ? "invalid" : "empty", errorMessage || "Add a photo to begin. Processing stays in this browser tab.");
+  updateState(errorMessage ? "invalid" : "empty", errorMessage || "Add a photo to begin. AI processing starts only when you make the cards.");
   updatePalette(DEFAULT_PALETTE, false);
   document.querySelector("#story-count").textContent = "0 / 5";
   document.querySelector("#accent-role").textContent = "Waiting for photo";
@@ -212,11 +227,12 @@ function loadPhoto(file) {
     return;
   }
   if (file.size > MAX_FILE_SIZE) {
-    if (!currentUrl) updateState("invalid", "Choose an image smaller than 12 MB for this preview.");
-    photoError.textContent = "Choose an image smaller than 12 MB for this preview.";
+    if (!currentUrl) updateState("invalid", "Choose an image smaller than 4 MB.");
+    photoError.textContent = "Choose an image smaller than 4 MB.";
     return;
   }
   if (currentUrl) URL.revokeObjectURL(currentUrl);
+  currentFile = file;
   currentUrl = URL.createObjectURL(file);
   const probe = new Image();
   probe.onload = () => {
@@ -229,8 +245,8 @@ function loadPhoto(file) {
     uploadPreview.hidden = false;
     sourcePlaceholder.hidden = true;
     storyImage.hidden = false;
-    generateButton.disabled = false;
-    updateState("ready", "Ready to make a color story. Processing stays in this browser tab.");
+    generateButton.disabled = !modelsReady;
+    updateState(modelsReady ? "ready" : "loading", modelsReady ? "Ready to make a color story with both AI models." : "Waiting for the AI models to finish starting…");
     updatePalette(samplePalette(probe), true);
     updateCardCopy();
   };
@@ -249,8 +265,8 @@ messageInput.addEventListener("input", updateCardCopy);
 document.querySelectorAll('input[name="object"]').forEach((input) => input.addEventListener("change", () => {
   updateCardCopy();
   modeStatus.innerHTML = input.value === "auto"
-    ? "<strong>Demo Mode</strong> · Auto has no model confidence yet."
-    : "<strong>Demo Mode</strong> · choose the object yourself.";
+    ? "<strong>Model Mode</strong> · the classifier will identify the object."
+    : "<strong>Manual override</strong> · your selection replaces the classifier label.";
 }));
 
 ["dragenter", "dragover"].forEach((eventName) => dropzone.addEventListener(eventName, (event) => {
@@ -263,33 +279,62 @@ document.querySelectorAll('input[name="object"]').forEach((input) => input.addEv
 }));
 dropzone.addEventListener("drop", (event) => loadPhoto(event.dataTransfer.files[0]));
 
-form.addEventListener("submit", (event) => {
+function applyGeneratedCards(payload) {
+  updatePalette(payload.source_colors?.length === 5 ? payload.source_colors : currentPalette, true);
+  const roles = payload.design_roles || {};
+  document.querySelector("#accent-role").textContent = roles.accent || currentPalette[0];
+  document.querySelector("#canvas-role").textContent = roles.background || "AI-selected neutral";
+  document.querySelector("#approach-role").textContent = roles.harmony || "Learned roles with accessibility guardrails";
+  payload.cards.forEach((card, index) => {
+    const preview = cardPreviews[index];
+    preview.querySelector(".generated-card-image")?.remove();
+    const image = document.createElement("img");
+    image.className = "generated-card-image";
+    image.src = card.data_url;
+    image.alt = `AI-generated PaletteCard direction ${index + 1}`;
+    preview.append(image);
+    preview.classList.add("has-generated");
+    const link = downloadLinks[index];
+    link.href = card.data_url;
+    link.download = card.filename;
+    link.hidden = false;
+  });
+  results.hidden = false;
+  resultStatusTitle.textContent = "Your three AI-generated cards are ready.";
+  resultStatusCopy.textContent = `${payload.recognition} · 5 colors observed · 3 directions composed.`;
+  updateState("success", "Your cards are ready. Choose any direction to download it.");
+}
+
+form.addEventListener("submit", async (event) => {
   event.preventDefault();
-  if (!currentUrl || isGenerating) return;
+  if (!currentFile || isGenerating) return;
   isGenerating = true;
   generateButton.disabled = true;
   generateButton.setAttribute("aria-busy", "true");
   generateLabel.textContent = "Mixing your colors…";
-  updateState("loading", "Mixing your colors… This stays in your browser tab.");
-  generationTimer = window.setTimeout(() => {
-    try {
-      results.hidden = false;
-      resultStatusTitle.textContent = "Your three cards are ready.";
-      resultStatusCopy.textContent = "5 colors observed · 3 directions composed.";
-      updateState("success", "Your three cards are ready. Browser preview only — no AI or server was called.");
-    } catch (_error) {
-      results.hidden = true;
-      updateState("error", "We couldn’t create the cards. Check that an image is uploaded, then try again.");
-    }
+  updateState("loading", "The classifier and palette model are mixing your colors… A cold start can take up to a minute.");
+  try {
+    const body = new FormData();
+    body.append("file", currentFile, currentFile.name);
+    body.append("object_choice", selectedObject());
+    body.append("title", titleInput.value.trim());
+    body.append("message", messageInput.value.trim());
+    const response = await fetch("/api/generate", { method: "POST", body });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.detail || "The AI service could not generate the cards.");
+    applyGeneratedCards(payload);
+  } catch (error) {
+    results.hidden = true;
+    updateState("error", error.message || "We couldn’t create the cards. Try again with a smaller image.");
+  } finally {
     generateLabel.textContent = "Draw my 3 cards";
     generateButton.disabled = false;
     generateButton.setAttribute("aria-busy", "false");
     isGenerating = false;
     if (!results.hidden) {
-      updateTheme(currentPalette, true);
       results.scrollIntoView({ behavior: prefersReducedMotion() ? "auto" : "smooth", block: "start" });
     }
-  }, 420);
+  }
 });
 
 document.querySelector("#start-over").addEventListener("click", () => {
@@ -297,5 +342,26 @@ document.querySelector("#start-over").addEventListener("click", () => {
   document.querySelector("#studio").scrollIntoView({ behavior: prefersReducedMotion() ? "auto" : "smooth", block: "start" });
 });
 
+async function checkModelReadiness() {
+  try {
+    const response = await fetch("/readyz", { headers: { Accept: "application/json" } });
+    const readiness = await response.json();
+    if (response.ok && readiness.object_model?.loaded && readiness.palette_model?.loaded) {
+      modelsReady = true;
+      modelBadge.innerHTML = '<span aria-hidden="true"></span> AI ready';
+      modeStatus.innerHTML = "<strong>Model Mode</strong> · Auto classification and learned palette roles are ready.";
+      generateButton.disabled = !currentFile;
+      return;
+    }
+    throw new Error("models unavailable");
+  } catch (_error) {
+    modelsReady = false;
+    modelBadge.innerHTML = '<span aria-hidden="true"></span> AI unavailable';
+    modeStatus.innerHTML = "<strong>AI unavailable</strong> · try again shortly.";
+    generateButton.disabled = true;
+  }
+}
+
 updateCardCopy();
 resetPhoto();
+checkModelReadiness();

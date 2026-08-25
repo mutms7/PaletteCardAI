@@ -657,6 +657,10 @@ def build_app(checkpoint_path: str | Path | None = None, output_dir: str | Path 
     demo._palette_card_allowed_paths = [str(resolved_output_dir)]
     demo._palette_card_object_model_ready = predictor is not None
     demo._palette_card_palette_model_ready = palette_predictor is not None
+    demo._palette_card_predictor = predictor
+    demo._palette_card_palette_predictor = palette_predictor
+    demo._palette_card_mode_message = mode_message
+    demo._palette_card_palette_mode_message = palette_mode_message
     demo._palette_card_css = _load_studio_css()
     demo._palette_card_js = _load_studio_js()
     return demo

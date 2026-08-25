@@ -3,11 +3,11 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="A frontend-only preview of PaletteCard AI, a small color studio for turning one photo into three card directions." />
+    <meta name="description" content="PaletteCard AI recognizes one photo, learns its colors, and creates three downloadable greeting cards." />
     <title>PaletteCard AI — Draw a color story</title>
-    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="styles.css?v=2" />
-    <script src="app.js" defer></script>
+    <link rel="icon" href="/frontend/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/frontend/styles.css?v=3" />
+    <script src="/frontend/app.js?v=3" defer></script>
   </head>
   <body>
     <a class="skip-link" href="#studio">Skip to the studio</a>
@@ -17,9 +17,9 @@
         <span class="wordmark-mark" aria-hidden="true">✦</span>
         <span>PaletteCard <em>AI</em></span>
       </a>
-      <nav aria-label="Main navigation"><a href="#studio">Create</a><a href="#how-it-works">How it works</a><a href="#privacy">About this preview</a></nav>
+      <nav aria-label="Main navigation"><a href="#studio">Create</a><a href="#how-it-works">How it works</a><a href="#privacy">Privacy</a></nav>
       <div class="header-meta">
-        <span class="status-badge"><span aria-hidden="true"></span> Browser preview</span>
+        <span class="status-badge" id="model-badge"><span aria-hidden="true"></span> Checking AI…</span>
       </div>
     </header>
 
@@ -28,13 +28,13 @@
         <div class="hero-copy-block">
           <p class="eyebrow">A small color studio</p>
           <h1 id="hero-title">Your photo has a <span>color story.</span><br />Let's draw it out!</h1>
-          <a class="hero-action" href="#studio">Try the preview ↓</a>
+          <a class="hero-action" href="#studio">Make a card ↓</a>
         </div>
         <div class="hero-copy hero-art">
           <div class="paper-doodle" aria-hidden="true"><span>one photo</span><b>→</b><span>three cards!</span></div>
           <div class="privacy-line" id="privacy">
             <span aria-hidden="true">●</span>
-            <p><strong>This page is a browser-only preview.</strong> It keeps your image in this tab. Run the Python app locally to use both trained AI models and download PNGs.</p>
+            <p><strong>Two tiny AI models, one working prototype.</strong> Your photo is sent securely for inference, used to make your cards, and is not deliberately retained.</p>
           </div>
         </div>
       </section>
@@ -52,7 +52,7 @@
               <p class="step-label">Step one</p>
               <h2>Choose your picture</h2>
             </div>
-            <span class="local-label">Stays in this tab</span>
+            <span class="local-label">AI-powered</span>
           </div>
 
           <label class="dropzone" id="dropzone" for="photo-input" aria-describedby="upload-hint photo-error">
@@ -77,11 +77,11 @@
 
           <fieldset class="object-fieldset" aria-describedby="mode-helper">
             <legend>How should we identify it?</legend>
-            <p id="mode-helper">Demo Mode uses your choice. Model Mode can make an Auto prediction.</p>
-            <p class="mode-status" id="mode-status"><strong>Demo Mode</strong> · choose the object yourself.</p>
+            <p id="mode-helper">Auto uses the trained classifier. You can override it when needed.</p>
+            <p class="mode-status" id="mode-status"><strong>Checking AI…</strong></p>
             <div class="object-options">
-              <label class="is-disabled"><input type="radio" name="object" value="auto" disabled /><span>Auto</span></label>
-              <label><input type="radio" name="object" value="flower" checked /><span>Flower</span></label>
+              <label><input type="radio" name="object" value="auto" checked /><span>Auto</span></label>
+              <label><input type="radio" name="object" value="flower" /><span>Flower</span></label>
               <label><input type="radio" name="object" value="heart" /><span>Heart</span></label>
               <label><input type="radio" name="object" value="ring" /><span>Ring</span></label>
               <label><input type="radio" name="object" value="cake" /><span>Cake</span></label>
@@ -104,7 +104,7 @@
             <span id="generate-label">Draw my 3 cards</span>
             <span aria-hidden="true">↗</span>
           </button>
-          <p class="action-note" id="action-status" aria-live="polite">Add a photo to begin. Processing stays in this browser tab.</p>
+          <p class="action-note" id="action-status" aria-live="polite">Add a photo to begin. AI processing starts only when you make the cards.</p>
         </form>
 
         <aside class="story-panel" aria-labelledby="story-title">
@@ -128,7 +128,7 @@
           <div class="swatch-section">
             <div class="section-label-row">
               <span>Observed colors</span>
-              <span>Browser-only sample</span>
+              <span>Quick preview</span>
             </div>
             <div class="swatches" id="swatches" aria-label="Colors sampled from your photo">
               <span style="--swatch: #e8e2da"></span>
@@ -152,7 +152,7 @@
 
           <div class="offline-note">
             <span aria-hidden="true">◇</span>
-            <div><strong>Design preview only</strong><p>Simple browser color sampling drives this mockup. It is not the trained palette model.</p></div>
+            <div><strong>AI runs when you create</strong><p>This quick preview responds instantly; the trained palette model makes the final color decisions.</p></div>
           </div>
         </aside>
       </section>
@@ -164,7 +164,7 @@
             <h2 id="results-title">Ta-da! Three card ideas</h2>
           </div>
           <div class="results-meta">
-            <span>Browser preview · no files generated</span>
+            <span id="results-mode">AI-generated · ready to download</span>
             <button id="start-over" type="button">Start over</button>
           </div>
         </div>
@@ -186,6 +186,7 @@
               <span class="editorial-orb" aria-hidden="true"></span>
             </div>
             <div class="direction-label"><span>01</span><div><strong>Editorial</strong><p>Photo-led, composed, generous.</p></div></div>
+            <a class="download-card" hidden>Download editorial card</a>
           </article>
 
           <article class="direction">
@@ -199,6 +200,7 @@
               <div class="mini-swatches" aria-hidden="true"><span></span><span></span><span></span></div>
             </div>
             <div class="direction-label"><span>02</span><div><strong>Playful</strong><p>Abstract, bright, still restrained.</p></div></div>
+            <a class="download-card" hidden>Download playful card</a>
           </article>
 
           <article class="direction">
@@ -212,11 +214,12 @@
               </div>
             </div>
             <div class="direction-label"><span>03</span><div><strong>Minimal</strong><p>Framed, formal, palette-forward.</p></div></div>
+            <a class="download-card" hidden>Download minimal card</a>
           </article>
         </div>
 
         <div class="results-note">
-          <p><strong>Preview boundary.</strong> This Vercel version samples colors and composes card previews in your browser. It has no model confidence, server upload, or PNG download.</p>
+          <p><strong>Prototype boundary.</strong> These cards were generated by the committed classifier and palette model. Outputs are compressed as high-quality JPEGs to stay within serverless response limits.</p>
         </div>
       </section>
     </main>

@@ -569,7 +569,7 @@ body { background: radial-gradient(circle at 8% 8%, rgb(255 216 77 / 25%) 0 3px,
 .control-panel, .story-panel { border: 3px solid var(--ink); border-radius: var(--wobbly); padding: 30px; box-shadow: 5px 6px 0 rgb(41 37 49 / 16%); }
 .control-panel { background: var(--surface); transform: rotate(-.15deg); }.story-panel { background: color-mix(in srgb, var(--surface) 78%, var(--photo-tint)); transform: rotate(.15deg); }
 .panel-heading h2, .results-heading h2 { font-family: Schoolbell, cursive; font-weight: 400; letter-spacing: 0; }.panel-heading h2 { font-size: 2rem; }
-.step-label { color: var(--accent); }.local-label, .story-count { border: 2px solid var(--ink); background: var(--yellow); color: var(--ink); }
+.step-label { color: var(--accent); }.local-label, .story-count { border: 2px solid var(--ink); background: var(--yellow); color: var(--ink); }.story-count { min-width: 52px; text-align: center; white-space: nowrap; }
 .dropzone { border: 3px dashed var(--ink); border-radius: var(--wobbly); background: var(--surface-muted); }.dropzone:hover { background: color-mix(in srgb, var(--surface-muted) 75%, var(--yellow)); }
 .upload-icon { border: 2px solid var(--ink); background: var(--yellow); color: var(--ink); }.browse-button { border: 2px solid var(--ink); box-shadow: 2px 2px 0 var(--ink); }
 .object-options span, .copy-fields input, .copy-fields textarea { border: 2px solid var(--ink); }
@@ -577,6 +577,12 @@ body { background: radial-gradient(circle at 8% 8%, rgb(255 216 77 / 25%) 0 3px,
 .source-stage { border: 2px dashed var(--ink); border-radius: var(--wobbly); }.swatches span { border: 2px solid var(--ink); border-radius: 45% 55% 48% 52%; }
 .offline-note { border: 2px dashed var(--ink); border-radius: var(--wobbly); background: var(--accent-soft); }
 .results { border-top: 3px solid var(--ink); }.results-heading h2 { font-size: clamp(2.2rem, 5vw, 4rem); }.card-preview { border: 3px solid var(--ink); border-radius: var(--wobbly); box-shadow: 5px 6px 0 var(--green); }
+.card-preview.has-generated { display: block; aspect-ratio: 8 / 5; min-height: 0; overflow: hidden; padding: 0; background: var(--surface); }
+.card-preview.has-generated > :not(.generated-card-image) { display: none; }
+.generated-card-image { width: 100%; height: 100%; object-fit: cover; }
+.download-card { display: inline-flex; justify-content: center; margin-top: 13px; border: 2px solid var(--ink); border-radius: 999px; padding: 9px 14px; background: var(--yellow); color: var(--ink); font-family: Schoolbell, cursive; font-size: 1rem; font-weight: 700; text-decoration: none; box-shadow: 2px 2px 0 var(--ink); }
+.download-card:hover { box-shadow: none; transform: translate(2px, 2px); }
+.download-card[hidden] { display: none; }
 footer { border-top: 3px solid var(--ink); }
 
 @media (max-width: 840px) {
