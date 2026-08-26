@@ -565,6 +565,7 @@ function renderLayers() {
     visibility.setAttribute("aria-label", `${layer.visible ? "Hide" : "Show"} ${layer.name}`);
     visibility.textContent = layer.visible ? "◉" : "○";
     visibility.addEventListener("click", () => {
+      recordHistory(editorSnapshot());
       layer.visible = !layer.visible;
       renderLayers();
       renderComposite();
@@ -595,7 +596,8 @@ function renderLayers() {
   updateTextControls();
 }
 
-function addPaintLayer(name = `Paint ${layers.filter((layer) => layer.type === "paint").length + 1}`) {
+function addPaintLayer(name = `Paint ${layers.filter((layer) => layer.type === "paint").length + 1}`, record = true) {
+  if (record) recordHistory(editorSnapshot());
   const layer = makeLayer(name);
   layers.push(layer);
   selectedLayerId = layer.id;
@@ -605,7 +607,8 @@ function addPaintLayer(name = `Paint ${layers.filter((layer) => layer.type === "
   renderComposite();
 }
 
-function addTextLayer(x = ARTBOARD_WIDTH / 2, y = 180) {
+function addTextLayer(x = ARTBOARD_WIDTH / 2, y = 180, record = true) {
+  if (record) recordHistory(editorSnapshot());
   const count = layers.filter((layer) => layer.type === "text").length + 1;
   const layer = makeTextLayer(`Words ${count}`, x, y);
   layers.push(layer);
@@ -642,7 +645,8 @@ function renameSelectedLayer() {
   const layer = selectedLayer();
   if (!layer) return;
   const name = window.prompt("What should I call this layer?", layer.name)?.trim();
-  if (name) {
+  if (name && name.slice(0, 32) !== layer.name) {
+    recordHistory(editorSnapshot());
     layer.name = name.slice(0, 32);
     renderLayers();
   }
@@ -653,6 +657,7 @@ qs("#rename-layer").addEventListener("click", renameSelectedLayer);
 qs("#delete-layer").addEventListener("click", () => {
   const index = layers.findIndex((layer) => layer.id === selectedLayerId);
   if (index <= 0) return;
+  recordHistory(editorSnapshot());
   layers.splice(index, 1);
   selectedLayerId = layers[Math.max(1, index - 1)]?.id || layers[0].id;
   renderLayers();
@@ -661,6 +666,7 @@ qs("#delete-layer").addEventListener("click", () => {
 qs("#duplicate-layer").addEventListener("click", () => {
   const source = selectedLayer();
   if (!source) return;
+  recordHistory(editorSnapshot());
   let copy;
   if (source.type === "text") {
     copy = makeTextLayer(`${source.name} copy`, clamp(source.x + 26, 60, ARTBOARD_WIDTH - 60), clamp(source.y + 26, 60, ARTBOARD_HEIGHT - 60));
@@ -686,12 +692,18 @@ qs("#duplicate-layer").addEventListener("click", () => {
 });
 qs("#move-layer-up").addEventListener("click", () => {
   const index = layers.findIndex((layer) => layer.id === selectedLayerId);
-  if (index > 0 && index < layers.length - 1) [layers[index], layers[index + 1]] = [layers[index + 1], layers[index]];
+  if (index > 0 && index < layers.length - 1) {
+    recordHistory(editorSnapshot());
+    [layers[index], layers[index + 1]] = [layers[index + 1], layers[index]];
+  }
   renderLayers(); renderComposite();
 });
 qs("#move-layer-down").addEventListener("click", () => {
   const index = layers.findIndex((layer) => layer.id === selectedLayerId);
-  if (index > 1) [layers[index], layers[index - 1]] = [layers[index - 1], layers[index]];
+  if (index > 1) {
+    recordHistory(editorSnapshot());
+    [layers[index], layers[index - 1]] = [layers[index - 1], layers[index]];
+  }
   renderLayers(); renderComposite();
 });
 
@@ -828,6 +840,27 @@ function snapshot(layer) {
   return { kind: "canvas", layerId: layer.id, dataUrl: layer.canvas.toDataURL("image/png") };
 }
 
+function serializedLayer(layer) {
+  const state = {
+    id: layer.id,
+    name: layer.name,
+    visible: layer.visible,
+    locked: layer.locked,
+    type: layer.type,
+  };
+  if (layer.type === "text") return { ...state, ...textState(layer) };
+  return { ...state, dataUrl: layer.canvas.toDataURL("image/png") };
+}
+
+function editorSnapshot() {
+  return {
+    kind: "editor",
+    selectedLayerId,
+    currentTool,
+    layers: layers.map(serializedLayer),
+  };
+}
+
 function recordHistory(item) {
   if (!item) return;
   undoStack.push(item);
@@ -937,31 +970,59 @@ function endDrawing(event) {
 artboard.addEventListener("pointerup", endDrawing);
 artboard.addEventListener("pointercancel", endDrawing);
 
-function restoreSnapshot(item) {
-  return new Promise((resolve) => {
+function loadImage(dataUrl) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = reject;
+    image.src = dataUrl;
+  });
+}
+
+async function restoreEditorSnapshot(item) {
+  layers = await Promise.all(item.layers.map(async (state) => {
+    const layer = state.type === "text"
+      ? makeTextLayer(state.name, state.x, state.y)
+      : makeLayer(state.name, state.locked, state.type);
+    Object.assign(layer, state);
+    if (state.type !== "text") {
+      const image = await loadImage(state.dataUrl);
+      layer.canvas.getContext("2d").drawImage(image, 0, 0);
+    }
+    return layer;
+  }));
+  selectedLayerId = layers.some((layer) => layer.id === item.selectedLayerId)
+    ? item.selectedLayerId
+    : layers.at(-1)?.id || null;
+  currentTool = item.currentTool;
+}
+
+async function restoreSnapshot(item) {
+  if (item.kind === "editor") {
+    await restoreEditorSnapshot(item);
+  } else {
     const layer = layers.find((candidate) => candidate.id === item.layerId);
-    if (!layer) { resolve(); return; }
+    if (!layer) return;
     if (item.kind === "text") {
       Object.assign(layer, item.state);
       selectedLayerId = layer.id;
       currentTool = "text";
-      renderLayers();
-      updateToolButtons();
-      renderComposite();
-      resolve();
-      return;
-    }
-    const image = new Image();
-    image.onload = () => {
+    } else {
+      const image = await loadImage(item.dataUrl);
       const context = layer.canvas.getContext("2d");
       context.clearRect(0, 0, ARTBOARD_WIDTH, ARTBOARD_HEIGHT);
       context.drawImage(image, 0, 0);
-      renderLayers();
-      renderComposite();
-      resolve();
-    };
-    image.src = item.dataUrl;
-  });
+    }
+  }
+  renderLayers();
+  updateToolButtons();
+  renderComposite();
+}
+
+function inverseSnapshot(item) {
+  if (item.kind === "editor") return editorSnapshot();
+  const layer = layers.find((candidate) => candidate.id === item.layerId);
+  return layer ? snapshot(layer) : null;
 }
 
 function updateHistoryButtons() {
@@ -971,8 +1032,8 @@ function updateHistoryButtons() {
 qs("#undo-action").addEventListener("click", async () => {
   const item = undoStack.pop();
   if (!item) return;
-  const layer = layers.find((candidate) => candidate.id === item.layerId);
-  if (layer) redoStack.push(snapshot(layer));
+  const inverse = inverseSnapshot(item);
+  if (inverse) redoStack.push(inverse);
   await restoreSnapshot(item);
   updateHistoryButtons();
 });
@@ -1026,8 +1087,8 @@ qsa("[data-align]", textControls).forEach((button) => button.addEventListener("c
 qs("#redo-action").addEventListener("click", async () => {
   const item = redoStack.pop();
   if (!item) return;
-  const layer = layers.find((candidate) => candidate.id === item.layerId);
-  if (layer) undoStack.push(snapshot(layer));
+  const inverse = inverseSnapshot(item);
+  if (inverse) undoStack.push(inverse);
   await restoreSnapshot(item);
   updateHistoryButtons();
 });
@@ -1045,11 +1106,11 @@ async function loadCardIntoEditor(dataUrl, label) {
   const starterHeadline = titleInput.value.trim();
   const starterNote = messageInput.value.trim();
   if (starterHeadline) {
-    const headline = addTextLayer(ARTBOARD_WIDTH / 2, 135);
+    const headline = addTextLayer(ARTBOARD_WIDTH / 2, 135, false);
     Object.assign(headline, { name: "Starter headline", text: starterHeadline, fontSize: 78, width: 700, color: "#292531" });
   }
   if (starterNote) {
-    const note = addTextLayer(ARTBOARD_WIDTH / 2, ARTBOARD_HEIGHT - 100);
+    const note = addTextLayer(ARTBOARD_WIDTH / 2, ARTBOARD_HEIGHT - 100, false);
     Object.assign(note, { name: "Starter note", text: starterNote, fontSize: 40, width: 690, color: "#292531" });
   }
   renderLayers();
